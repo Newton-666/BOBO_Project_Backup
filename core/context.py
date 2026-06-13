@@ -15,6 +15,7 @@ class ContextMixin:
         "general": [
             "get_current_time", "save_memory", "search_memory",
             "save_skill", "render", "project_info",
+            "notion_setup",
         ],
         "web": [
             "web_search", "web_fetch", "web_extract", "open_url",
@@ -36,7 +37,7 @@ class ContextMixin:
             "search_code", "refactor", "git_status",
             "github_create_repo", "github_create_pr",
             "github_pr_diff", "github_pr_comment",
-            "restore_checkpoint",
+            "github_check_auth", "github_setup", "restore_checkpoint",
         ],
         "file": [
             "read_local_file", "list_directory", "file_operation",
@@ -45,6 +46,9 @@ class ContextMixin:
             "send_notification", "read_clipboard", "write_clipboard",
             "set_reminder", "list_reminders",
             "create_calendar_event", "list_calendar_events",
+        ],
+        "notion": [
+            "notion_search",
         ],
     }
     _FALLBACK_CATEGORIES = ["general"]
@@ -56,6 +60,7 @@ class ContextMixin:
         ("code", ["code", "script", "write a", "create a file", "implement", "编程", "写代码", "debug"]),
         ("file", ["list file", "read file", "file operation", "directory", "文件夹", "文件"]),
         ("macos", ["notification", "remind", "clipboard", "剪贴板", "提醒", "通知"]),
+        ("notion", ["notion", "notion页面", "notion数据库"]),
     ]
 
     def _compress_history(self):
