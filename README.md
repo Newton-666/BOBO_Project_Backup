@@ -17,6 +17,16 @@
 
 ## Quick Start
 
+### Requirements
+
+- **Python 3.10+**
+- **Node.js v18+** (runs the TUI)
+
+```bash
+node --version   # should show v18+
+# Install: https://nodejs.org or brew install node
+```
+
 ### 1. Clone
 
 ```bash
@@ -24,71 +34,58 @@ git clone https://github.com/Newton-666/BOBO_Project_Backup.git
 cd BOBO_Project_Backup
 ```
 
-### 2. Install dependencies
+### 2. Install Python backend
 
-**Python:**
 ```bash
-python3 -m venv .venv
+python3 -m venv .venv          # optional but recommended
 source .venv/bin/activate
-pip install -e .
+python3 -m pip install -e .    # -m pip ensures correct Python
 ```
 
-**Node.js** (required for the TUI):
+### 3. Run
+
+**Option A — from the project folder (most reliable):**
 ```bash
-node --version   # should be v18+
-# If not installed: https://nodejs.org or brew install node
+./bobo
 ```
 
-### 3. Configure your API key
+**Option B — from anywhere (after pip install):**
+```bash
+bobo
+```
 
-Create `~/.bobo/.env`:
+> If `bobo` gives `ModuleNotFoundError: No module named 'bobo_tui_gateway'`, reinstall:
+> ```bash
+> cd /path/to/BOBO_Project_Backup
+> python3 -m pip install -e . --force-reinstall
+> ```
 
+### 4. Configure API key
+
+On first run, the TUI shows a setup screen. Select your provider and paste your API key.
+
+Or configure manually:
 ```bash
 mkdir -p ~/.bobo
 echo "DEEPSEEK_API_KEY=sk-your-key-here" > ~/.bobo/.env
 ```
 
-### 4. Run
+> Get a DeepSeek key: https://platform.deepseek.com/api-keys
+> Set `BOBO_PROVIDER=openai` to use OpenAI instead
 
-```bash
-bobo
-```
-
-On first run, Bobo detects no API key and shows a setup screen automatically:
-
-```
-┌─────────────────────────────────────────────┐
-│           ⚙ Setup Required                  │
-│                                             │
-│   Provider: [DeepSeek        ▾]             │
-│   API Key:  [___________________________]   │
-│                                             │
-│   [Submit]                                  │
-└─────────────────────────────────────────────┘
-```
-
-Select your provider, paste your API key, and click Submit. Bobo saves it to `~/.bobo/.env` and you're ready to chat.
-
-> Get a DeepSeek API key at https://platform.deepseek.com/api-keys
-> Or set `BOBO_PROVIDER=openai` in `~/.bobo/.env` to use OpenAI instead.
-
-### Optional: Configure services
+### Optional: Connect services
 
 ```bash
 # Obsidian vault
-echo "OBSIDIAN_VAULT=/path/to/your/vault" >> ~/.bobo/.env
+echo "OBSIDIAN_VAULT=/path/to/vault" >> ~/.bobo/.env
 
 # Notion — just say "connect Notion" in chat
 # GitHub — just say "connect GitHub" in chat
 
 # Email
 cat > ~/.bobo/mail.json << 'EOF'
-{
-  "server": "imap.gmail.com",
-  "port": 993,
-  "username": "you@gmail.com",
-  "password": "your-app-password"
-}
+{"server": "imap.gmail.com", "port": 993,
+ "username": "you@gmail.com", "password": "app-password"}
 EOF
 ```
 
