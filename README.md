@@ -24,15 +24,19 @@ git clone https://github.com/Newton-666/BOBO_Project_Backup.git
 cd BOBO_Project_Backup
 ```
 
-### 2. Install Python dependencies
+### 2. Install dependencies
 
+**Python:**
 ```bash
-# Using venv (recommended)
 python3 -m venv .venv
-source .venv/bin/activate   # macOS/Linux
-# .venv\Scripts\activate    # Windows
-
+source .venv/bin/activate
 pip install -e .
+```
+
+**Node.js** (required for the TUI):
+```bash
+node --version   # should be v18+
+# If not installed: https://nodejs.org or brew install node
 ```
 
 ### 3. Configure your API key
