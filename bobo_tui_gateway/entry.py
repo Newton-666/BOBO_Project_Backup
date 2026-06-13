@@ -43,6 +43,7 @@ def resolve_skin() -> dict:
         "branding": {
             "agent_name": "Bobo Agent",
             "prompt_symbol": ">",
+            "icon": "",
             "welcome": "你好！我是 Bobo，你的智能助手。",
             "goodbye": "再见！",
             "help_header": "Bobo 命令帮助",
