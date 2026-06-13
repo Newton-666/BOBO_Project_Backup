@@ -20,7 +20,55 @@ def _read_single_file(filepath: str, max_chars: int = 5000) -> str:
 
     try:
         if ext == '.pdf':
-            return "错误: PDF 读取需要安装 pypdf: pip install pypdf"
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(str(path))
+                text = "\n".join(page.extract_text() or "" for page in reader.pages)
+                return f"{filepath}\n\n{text[:max_chars]}" + (f"\n... (共 {len(text)} 字符)" if len(text) > max_chars else "")
+            except ImportError:
+                return "错误: 请安装 pypdf: pip install pypdf"
+        elif ext in ['.docx', '.doc']:
+            try:
+                import docx
+                doc = docx.Document(str(path))
+                text = "\n".join(p.text for p in doc.paragraphs)
+                return f"{filepath}\n\n{text[:max_chars]}" + (f"\n... (共 {len(text)} 字符)" if len(text) > max_chars else "")
+            except ImportError:
+                return "错误: 请安装 python-docx: pip install python-docx"
+        elif ext in ['.pptx', '.ppt']:
+            try:
+                from pptx import Presentation
+                prs = Presentation(str(path))
+                text_parts = []
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and shape.text.strip():
+                            text_parts.append(shape.text)
+                text = "\n".join(text_parts)
+                return f"{filepath}\n\n{text[:max_chars]}" + (f"\n... (共 {len(text)} 字符)" if len(text) > max_chars else "")
+            except ImportError:
+                return "错误: 请安装 python-pptx: pip install python-pptx"
+        elif ext in ['.xlsx', '.xls']:
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(str(path), read_only=True, data_only=True)
+                text_parts = []
+                for sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    rows = []
+                    for row in ws.iter_rows(values_only=True):
+                        row_text = " | ".join(str(c) for c in row if c is not None)
+                        if row_text.strip():
+                            rows.append(row_text)
+                    if rows:
+                        text_parts.append(f"[{sheet_name}]\n" + "\n".join(rows[:50]))
+                        if len(rows) > 50:
+                            text_parts.append(f"... (共 {len(rows)} 行)")
+                wb.close()
+                text = "\n\n".join(text_parts)
+                return f"{filepath}\n\n{text[:max_chars]}" + (f"\n... (共 {len(text)} 字符)" if len(text) > max_chars else "")
+            except ImportError:
+                return "错误: 请安装 openpyxl: pip install openpyxl"
         elif ext in ['.md', '.txt', '.py', '.json', '.yaml', '.yml', '.html', '.css', '.js', '.sh']:
             content = path.read_text(encoding='utf-8')
         else:
