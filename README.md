@@ -1,4 +1,5 @@
 # Bobo Agent
+<img width="500" height="190" alt="截屏2026-06-13 17 16 09" src="https://github.com/user-attachments/assets/7c86d564-9894-41de-bd32-68ecc0ca7d9e" />
 
 <p align="center">
   <b>A personal AI agent that lives across your knowledge</b><br>
