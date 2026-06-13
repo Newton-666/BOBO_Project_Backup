@@ -54,9 +54,9 @@ def _normalize_path(filename: str, is_destination: bool = False) -> str:
     if len(matches) == 1:
         return matches[0]
     elif len(matches) > 1:
-        # 多个同名文件，返回第一个并提示
-        paths = [os.path.relpath(m, OBSIDIAN_VAULT) for m in matches[:5]]
-        return matches[0]
+        # 多个同名文件，返回提示信息让 LLM 询问用户
+        paths = [os.path.relpath(m, OBSIDIAN_VAULT) for m in matches[:10]]
+        return f"__MULTIPLE_MATCHES__:" + "|".join(paths)
     
     # 都不存在，默认返回 Bobo数据库目录（让调用方处理"文件不存在"）
     return bobo_path
@@ -136,6 +136,11 @@ def search_obsidian_notes(query: str) -> str:
 
 def read_obsidian_note(filename: str) -> str:
     filepath = _normalize_path(filename, is_destination=False)
+    
+    # 多个同名文件时，让用户选择
+    if isinstance(filepath, str) and filepath.startswith("__MULTIPLE_MATCHES__"):
+        paths = filepath.split(":", 1)[1].split("|")
+        return f"找到多个同名文件，请指定具体路径:\n" + "\n".join(f"  {p}" for p in paths)
     
     if _is_blocked_path(filepath):
         return f"❌ 无权访问该文件（隐私保护）"
