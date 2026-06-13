@@ -106,6 +106,12 @@ def register(reg):
     reg("my_tool", execute_func, schema, check_fn=_check)
 ```
 
+## Acknowledgements
+
+Bobo's TUI frontend (`ui-tui/`) is based on [Hermes Agent](https://github.com/NousResearch/hermes-agent) by Nous Research, used under the MIT License. Hermes Ink (`ui-tui/packages/hermes-ink/`) is a forked version of [Ink](https://github.com/vadimdemedes/ink) by Vadim Demedes.
+
+See `NOTICE.md` for full license details.
+
 ## License
 
 MIT
