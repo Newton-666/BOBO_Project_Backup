@@ -46,6 +46,18 @@ class ToolRunnerMixin:
 
     def _execute_tool_loop(self, tool_calls: list) -> list:
         from core.tool_executor import execute_tool as _execute_tool
+        from tools import TOOLS_SCHEMA
+
+        # Build a quick lookup: tool_name -> description + params
+        _schema_map = {}
+        for t in TOOLS_SCHEMA:
+            fn = t.get("function", t)
+            name = fn.get("name", "")
+            if name:
+                params = fn.get("parameters", {}).get("properties", {})
+                required = fn.get("parameters", {}).get("required", [])
+                desc = fn.get("description", "")
+                _schema_map[name] = {"description": desc, "properties": params, "required": required}
 
         # 拦截 restore_checkpoint 工具，由 engine 自身处理
         self._notify("thinking", {"phase": "executing_tools", "message": f"准备执行 {len(tool_calls)} 个工具"})
@@ -56,22 +68,39 @@ class ToolRunnerMixin:
         for tc in tool_calls:
             tool_name = tc.get("function", {}).get("name", "")
             if tool_name == "restore_checkpoint":
-                # 直接在 engine 中处理
-                args_str = tc.get("function", {}).get("arguments", "{}")
-                try:
-                    tool_args = json.loads(args_str)
-                except Exception:
-                    tool_args = {}
-                result = self._restore_checkpoint(tool_args.get("path", ""))
-                self._notify("tool_result", {"name": tool_name, "args": tool_args, "result": result[:200], "duration": 0, "success": True})
-                tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result[:self.MAX_TOOL_RESULT_LENGTH]})
-                self._record_message("tool_result", result=result[:200])
+                self._handle_restore_checkpoint(tc, tool_results)
+                continue
+            if tool_name == "cross_search":
+                self._handle_cross_search(tc, tool_results)
                 continue
             args_str = tc.get("function", {}).get("arguments", "{}")
             try:
                 tool_args = json.loads(args_str)
             except Exception:
                 tool_args = {}
+                # 架构化错误：告诉 LLM 正确的参数格式
+                schema = _schema_map.get(tool_name, {})
+                props = schema.get("properties", {})
+                if props:
+                    hints = []
+                    for pname, pinfo in props.items():
+                        ptype = pinfo.get("type", "string")
+                        desc = pinfo.get("description", "")
+                        hints.append(f"  {pname} ({ptype}): {desc}")
+                    required = schema.get("required", [])
+                    req_hint = f"必需参数: {', '.join(required)}" if required else ""
+                    tool_results.append({
+                        "tool_call_id": tc.get("id", ""),
+                        "role": "tool",
+                        "content": (
+                            f"错误: 工具 '{tool_name}' 参数格式错误\n"
+                            f"LLM 传入了无效 JSON: {args_str[:100]}\n"
+                            f"正确格式:\n" + "\n".join(hints) +
+                            (f"\n{req_hint}" if req_hint else "")
+                        )
+                    })
+                    self._record_message("tool_result", result="参数解析失败")
+                    continue
             self._record_message("tool_call", tool_name=tool_name, args=tool_args)
             is_high_risk, reason = self._is_high_risk_tool(tool_name, tool_args)
             if is_high_risk:
@@ -132,7 +161,17 @@ class ToolRunnerMixin:
             try:
                 result = future.result(timeout=30)
             except Exception as e:
-                result = f"错误: 工具执行异常: {str(e)}"
+                error_detail = str(e)
+                schema = _schema_map.get(tool_name, {})
+                props = schema.get("properties", {})
+                hint = ""
+                if props:
+                    hints = []
+                    for pname, pinfo in props.items():
+                        ptype = pinfo.get("type", "string")
+                        hints.append(f"  {pname}:{ptype}={tool_args.get(pname, '?')}")
+                    hint = "\n参数: " + ", ".join(hints[:5])
+                result = f"错误: 工具 '{tool_name}' 执行异常: {error_detail[:200]}{hint}"
             duration = time.time() - start_time
 
             is_error = result.startswith("错误")
@@ -228,3 +267,71 @@ class ToolRunnerMixin:
             return f"✅ 已回滚: {path}"
         except Exception as e:
             return f"❌ 回滚失败: {str(e)}"
+
+    def _handle_restore_checkpoint(self, tc: dict, tool_results: list):
+        """Handle restore_checkpoint tool inline (needs engine context)."""
+        args_str = tc.get("function", {}).get("arguments", "{}")
+        try:
+            tool_args = json.loads(args_str)
+        except Exception:
+            tool_args = {}
+        result = self._restore_checkpoint(tool_args.get("path", ""))
+        self._notify("tool_result", {"name": "restore_checkpoint", "args": tool_args, "result": result[:200], "duration": 0, "success": True})
+        tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result[:self.MAX_TOOL_RESULT_LENGTH]})
+        self._record_message("tool_result", result=result[:200])
+
+    def _handle_cross_search(self, tc: dict, tool_results: list):
+        """Search Obsidian + Notion + email for the same query."""
+        args_str = tc.get("function", {}).get("arguments", "{}")
+        try:
+            tool_args = json.loads(args_str)
+        except Exception:
+            tool_args = {}
+        query = tool_args.get("query", "")
+        if not query:
+            result = "请输入搜索关键词"
+            self._notify("tool_result", {"name": "cross_search", "args": tool_args, "result": result, "duration": 0, "success": False})
+            tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result})
+            return
+
+        self._notify("thinking", {"phase": "cross_search", "message": f"搜索 '{query}' 跨平台..."})
+        parts = []
+
+        # Obsidian
+        try:
+            from tools.obsidian_tools import search_obsidian_notes
+            obsidian_result = search_obsidian_notes(query)
+            if "没有找到" not in obsidian_result:
+                parts.append(f"[Obsidian]\n{obsidian_result}")
+        except Exception:
+            pass
+
+        # Notion (only if configured)
+        import os
+        if os.environ.get("NOTION_API_KEY", ""):
+            try:
+                from tools.notion_search import execute as notion_search
+                notion_result = notion_search(query)
+                if "没有找到" not in notion_result and "Notion 未配置" not in notion_result:
+                    parts.append(f"[Notion]\n{notion_result}")
+            except Exception:
+                pass
+
+        # Email (only if configured)
+        if os.path.exists(os.path.expanduser("~/.bobo/mail.json")):
+            try:
+                from tools.search_emails import execute as email_search
+                email_result = email_search(query)
+                if email_result and "没有找到" not in email_result:
+                    parts.append(f"[邮件]\n{email_result}")
+            except Exception:
+                pass
+
+        if not parts:
+            result = f"在已配置的平台中都没有找到包含 '{query}' 的内容"
+        else:
+            result = f"跨平台搜索 '{query}':\n\n" + "\n\n".join(parts)
+
+        self._notify("tool_result", {"name": "cross_search", "args": tool_args, "result": result[:200], "duration": 0, "success": True})
+        tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result[:self.MAX_TOOL_RESULT_LENGTH]})
+        self._record_message("tool_result", result=result[:200])

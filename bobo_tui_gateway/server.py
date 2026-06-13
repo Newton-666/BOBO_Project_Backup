@@ -37,6 +37,10 @@ _CONTEXT_LENGTH = int(os.environ.get("CONTEXT_LENGTH", "128000"))
 _session_usage: dict[str, dict] = {}
 _session_usage_lock = threading.Lock()
 
+# 正在运行的引擎实例（用于中断）
+_current_engines: dict[str, threading.Event] = {}
+_current_engines_lock = threading.Lock()
+
 # 活跃引擎线程跟踪，用于优雅关闭
 _active_engine_threads: list[threading.Thread] = []
 _engine_threads_lock = threading.Lock()
@@ -157,8 +161,65 @@ def _build_session_info(sid: str) -> dict:
 
 @method("setup.status")
 def handle_setup_status(params: dict, rid: str) -> dict:
-    from config import API_KEY
-    return _ok(rid, {"provider_configured": bool(API_KEY)})
+    from config import API_KEY, ACTIVE_PROVIDER
+    return _ok(rid, {
+        "provider_configured": bool(API_KEY),
+        "provider": ACTIVE_PROVIDER,
+        "providers": ["deepseek", "openai", "anthropic", "openrouter", "google", "ollama", "custom"],
+    })
+
+
+@method("setup.submit")
+def handle_setup_submit(params: dict, rid: str) -> dict:
+    """保存用户通过 TUI 设置表单提交的 API Key。"""
+    provider = params.get("provider", "deepseek")
+    api_key = params.get("api_key", "")
+    if not api_key:
+        return _ok(rid, {"ok": False, "error": "API Key 不能为空"})
+    
+    env_path = os.path.expanduser("~/.bobo/.env")
+    os.makedirs(os.path.dirname(env_path), exist_ok=True)
+    
+    from core.provider import get_provider
+    provider_cfg = get_provider(provider)
+    if not provider_cfg:
+        return _ok(rid, {"ok": False, "error": f"不支持的提供商: {provider}"})
+    
+    env_key = provider_cfg["env_key"]
+    if not env_key:
+        return _ok(rid, {"ok": False, "error": f"{provider} 不需要 API Key（如 Ollama）"})
+    
+    # 写入 .env 文件
+    try:
+        key_eq = env_key + "="
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                content = f.read()
+            found = False
+            for line in content.split("\n"):
+                if line.startswith(key_eq):
+                    content = content.replace(line, key_eq + api_key)
+                    found = True
+                    break
+            if not found:
+                content += "\n" + key_eq + api_key
+        else:
+            content = key_eq + api_key + "\n"
+        if provider != "deepseek":
+            prov_line = "BOBO_PROVIDER="
+            found = False
+            for line in content.split("\n"):
+                if line.startswith(prov_line):
+                    content = content.replace(line, prov_line + provider)
+                    found = True
+                    break
+            if not found:
+                content += "\n" + prov_line + provider
+        with open(env_path, "w") as f:
+            f.write(content)
+        return {"ok": True, "message": f"{provider} 已配置", "provider_configured": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @method("session.create")
@@ -200,12 +261,25 @@ def handle_session_list(params: dict, rid: str) -> dict:
     sessions = mgr.list_sessions(limit=20)
     items = []
     for s in sessions:
+        # 解析 created_at 为 Unix 时间戳
+        ts = 0
+        raw = s.get("created_at", "")
+        if raw:
+            try:
+                dt = datetime.strptime(str(raw)[:19], "%Y%m%d_%H%M%S")
+                ts = dt.timestamp()
+            except ValueError:
+                try:
+                    dt = datetime.fromisoformat(str(raw))
+                    ts = dt.timestamp()
+                except Exception:
+                    ts = 0
         items.append({
             "id": s["id"],
             "title": s["title"],
             "message_count": s.get("message_count", 0),
-            "started_at": 0,
-            "preview": s["title"],
+            "started_at": ts,
+            "preview": s.get("title", ""),
         })
     return _ok(rid, {"sessions": items})
 
@@ -230,7 +304,22 @@ def handle_session_resume(params: dict, rid: str) -> dict:
         elif role == "system":
             transcript.append({"role": "system", "text": content})
 
-    _sessions[sid] = {"id": sid, "title": session_data.get("title", sid), "created_at": 0, "messages": messages}
+    # 恢复 created_at
+    created_at = 0
+    raw_ts = session_data.get("created_at", "")
+    if raw_ts:
+        try:
+            dt = datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+            created_at = dt.timestamp()
+        except Exception:
+            created_at = 0
+
+    _sessions[sid] = {
+        "id": sid,
+        "title": session_data.get("title", sid),
+        "created_at": created_at,
+        "messages": messages,
+    }
     global _current_sid
     _current_sid = sid
 
@@ -255,7 +344,13 @@ def handle_session_close(params: dict, rid: str) -> dict:
 
 @method("session.interrupt")
 def handle_session_interrupt(params: dict, rid: str) -> dict:
-    return _ok(rid, {"interrupted": True})
+    sid = params.get("session_id", "")
+    with _current_engines_lock:
+        event = _current_engines.pop(sid, None)
+    if event:
+        event.set()  # 通知引擎线程中断
+        return _ok(rid, {"interrupted": True})
+    return _ok(rid, {"interrupted": False})
 
 
 @method("session.steer")
@@ -273,7 +368,15 @@ def handle_approval_respond(params: dict, rid: str) -> dict:
     with _confirm_lock:
         event = _pending_confirm.pop(sid, None)
         if event:
-            _pending_confirm_result[sid] = (choice in ("allow", "once", "session", "always"))
+            # 映射 TUI 的选择到 engine 期望的值:
+            # "allow" → True（仅允许这一次）
+            # "session"/"always" → "all"（本次对话全部允许）
+            if choice in ("session", "always"):
+                _pending_confirm_result[sid] = "all"
+            elif choice in ("allow", "once"):
+                _pending_confirm_result[sid] = True
+            else:
+                _pending_confirm_result[sid] = False
             event.set()
     return _ok(rid, {"responded": True})
 
@@ -382,9 +485,19 @@ def handle_prompt_submit(params: dict, rid: str) -> dict:
 
             _emit("message.start", sid, {"session_id": sid})
 
+            # 创建中断事件
+            interrupt_event = threading.Event()
+            with _current_engines_lock:
+                _current_engines[sid] = interrupt_event
+
             engine = Engine(llm_caller, execute_tool, callback=on_event, confirm_callback=confirm_callback)
             engine.history = session.get("messages", [])
+            engine._interrupt_event = interrupt_event
             engine.run(text)
+
+            # 清理中断事件
+            with _current_engines_lock:
+                _current_engines.pop(sid, None)
 
             if engine.history:
                 session["messages"] = engine.history
@@ -429,7 +542,7 @@ def handle_config_full(params: dict, rid: str) -> dict:
             "display": {
                 "streaming": True,
                 "show_reasoning": True,
-                "tui_compact": False,
+                "tui_compact": True,
                 "details_mode": "collapsed",
             }
         }

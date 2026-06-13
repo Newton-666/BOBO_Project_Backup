@@ -15,7 +15,9 @@ class ContextMixin:
         "general": [
             "get_current_time", "save_memory", "search_memory",
             "save_skill", "render", "project_info",
-            "notion_setup",
+            "notion_setup", "cross_search",
+            "copy_to_obsidian", "copy_to_notion",
+            "api_register", "api_call",
         ],
         "web": [
             "web_search", "web_fetch", "web_extract", "open_url",
@@ -48,20 +50,24 @@ class ContextMixin:
             "create_calendar_event", "list_calendar_events",
         ],
         "notion": [
-            "notion_search",
+            "notion_search", "notion_create_page", "notion_append",
+            "notion_read_page",
         ],
     }
     _FALLBACK_CATEGORIES = ["general"]
 
     _CLASSIFY_RULES = [
-        ("web", ["search", "find online", "google it", "look up", "browse", "what is", "who is", "internet"]),
+        # 更具体的类别优先（"note" 比 "search" 更精确）
         ("obsidian", ["note", "obsidian", "vault", "日记", "笔记"]),
-        ("email", ["email", "mail", "inbox", "收件箱", "邮件"]),
+        ("notion", ["notion", "notion页面", "notion数据库"]),
         ("code", ["code", "script", "write a", "create a file", "implement", "编程", "写代码", "debug"]),
         ("file", ["list file", "read file", "file operation", "directory", "文件夹", "文件"]),
+        ("email", ["email", "mail", "inbox", "收件箱", "邮件"]),
         ("macos", ["notification", "remind", "clipboard", "剪贴板", "提醒", "通知"]),
-        ("notion", ["notion", "notion页面", "notion数据库"]),
+        ("web", ["search", "find online", "google it", "look up", "browse", "what is", "who is", "internet"]),
     ]
+    # 笔记/邮件类查询不限制工具 — 让 LLM 根据已配置的平台自由选择
+    _NO_FILTER_CATEGORIES = {"obsidian", "notion", "email"}
 
     def _compress_history(self):
         """将早期对话压缩为摘要，保留最近 KEEP_EXCHANGES 轮完整对话。"""
@@ -123,8 +129,8 @@ class ContextMixin:
         """根据查询类别返回过滤后的工具列表，返回 None 表示使用全部工具。"""
         from tools import TOOLS_SCHEMA
         category = self._classify_query()
-        if category is None:
-            return None
+        if category is None or category in self._NO_FILTER_CATEGORIES:
+            return None  # 使用全部工具
 
         allowed_names = set()
         for cat in [category] + self._FALLBACK_CATEGORIES:

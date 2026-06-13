@@ -54,25 +54,6 @@ def resolve_skin() -> dict:
 
 
 def main():
-    # 启动前检查：API Key 是否存在
-    from config import API_KEY
-    if not API_KEY:
-        write_json({
-            "jsonrpc": "2.0",
-            "method": "event",
-            "params": {
-                "type": "gateway.error",
-                "payload": {
-                    "message": (
-                        "DEEPSEEK_API_KEY 未配置。\n"
-                        "请在 ~/.bobo/.env 中添加:\n"
-                        "  DEEPSEEK_API_KEY=sk-你的密钥"
-                    )
-                }
-            },
-        })
-        sys.exit(1)
-
     # 发送 ready 事件（包含皮肤配置）
     if not write_json({
         "jsonrpc": "2.0",
@@ -83,6 +64,12 @@ def main():
         },
     }):
         sys.exit(0)
+
+    # 检查 API Key — 如果缺失，gateway.ready 已发送，TUI 会显示设置界面
+    from config import API_KEY
+    if not API_KEY:
+        # TUI 会调用 setup.status 检测到未配置，显示 /setup 界面
+        logger.warning("DEEPSEEK_API_KEY 未配置，等待用户在 TUI 中设置")
 
     # 读取并处理请求
     for raw in sys.stdin:

@@ -5,6 +5,7 @@ import os
 import json
 import re
 import time
+import threading
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Callable, Tuple
 
@@ -59,6 +60,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._tool_failures: dict[str, int] = {}
         self._last_usage: dict = {}
         self._pending_diff: str = ""
+        self._interrupt_event: threading.Event | None = None
 
     def _notify(self, event_type: str, data: dict):
         if self.callback:
@@ -197,6 +199,25 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 "content": f"[自上次调用以来的文件变更:]\n{self._pending_diff[:2000]}"
             })
             self._pending_diff = ""
+
+        # 注入已注册的自定义 API 列表
+        apis_dir = os.path.expanduser("~/.bobo/apis")
+        if os.path.isdir(apis_dir):
+            apis = []
+            for fname in sorted(os.listdir(apis_dir)):
+                if fname.endswith(".json"):
+                    try:
+                        with open(os.path.join(apis_dir, fname)) as f:
+                            cfg = json.load(f)
+                        eps = [ep.get("name", "?") for ep in cfg.get("endpoints", [])]
+                        apis.append(f"{cfg.get('name', fname)} ({', '.join(eps)})")
+                    except Exception:
+                        pass
+            if apis:
+                messages.insert(1, {
+                    "role": "system",
+                    "content": f"[已注册的自定义 API]:\n" + "\n".join(apis)
+                })
 
         self._notify("thinking", {"phase": "calling_llm", "message": "正在思考..."})
 
@@ -344,6 +365,11 @@ class Engine(ContextMixin, ToolRunnerMixin):
             self._step_count += 1
             if self._step_count > self.MAX_STEPS:
                 self._notify("error", {"content": f"执行步骤超过上限（{self.MAX_STEPS}步），已自动终止"})
+                self.state = self.STATE_ERROR
+                break
+            # 检查中断信号
+            if getattr(self, '_interrupt_event', None) and self._interrupt_event.is_set():
+                self._notify("error", {"content": "用户中断了操作"})
                 self.state = self.STATE_ERROR
                 break
             self._step()
