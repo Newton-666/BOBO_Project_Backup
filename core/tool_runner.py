@@ -73,9 +73,6 @@ class ToolRunnerMixin:
             if tool_name == "cross_search":
                 self._handle_cross_search(tc, tool_results)
                 continue
-            if tool_name == "set_brief":
-                self._handle_set_brief(tc, tool_results)
-                continue
             args_str = tc.get("function", {}).get("arguments", "{}")
             try:
                 tool_args = json.loads(args_str)
@@ -336,41 +333,5 @@ class ToolRunnerMixin:
             result = f"跨平台搜索 '{query}':\n\n" + "\n\n".join(parts)
 
         self._notify("tool_result", {"name": "cross_search", "args": tool_args, "result": result[:200], "duration": 0, "success": True})
-        tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result[:self.MAX_TOOL_RESULT_LENGTH]})
-
-    def _handle_set_brief(self, tc: dict, tool_results: list):
-        """Handle set_brief tool — saves a conversation brief on the engine."""
-        import json
-        import os
-        args_str = tc.get("function", {}).get("arguments", "{}")
-        try:
-            tool_args = json.loads(args_str)
-        except Exception:
-            tool_args = {}
-        source = tool_args.get("source", "")
-        from_obsidian = tool_args.get("from_obsidian", False)
-
-        if not source:
-            result = "请提供笔记路径或文本内容"
-        elif from_obsidian:
-            vault = os.environ.get("OBSIDIAN_VAULT", "")
-            if not vault:
-                result = "OBSIDIAN_VAULT 未配置"
-            else:
-                path = os.path.join(vault, source.lstrip("/"))
-                if not os.path.isfile(path):
-                    result = f"笔记不存在: {source}"
-                else:
-                    try:
-                        with open(path, encoding="utf-8") as f:
-                            self._brief = f.read(4000)
-                        result = f"简报已设置为: {source}"
-                    except Exception as e:
-                        result = f"读取失败: {str(e)}"
-        else:
-            self._brief = source[:4000]
-            result = "简报已设置"
-
-        self._notify("tool_result", {"name": "set_brief", "args": tool_args, "result": result[:200], "duration": 0, "success": True})
         tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result[:self.MAX_TOOL_RESULT_LENGTH]})
         self._record_message("tool_result", result=result[:200])

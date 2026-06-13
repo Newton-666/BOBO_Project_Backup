@@ -61,7 +61,6 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._last_usage: dict = {}
         self._pending_diff: str = ""
         self._interrupt_event: threading.Event | None = None
-        self._brief: str = ""  # 当前会话简报
 
     def _notify(self, event_type: str, data: dict):
         if self.callback:
@@ -94,6 +93,11 @@ class Engine(ContextMixin, ToolRunnerMixin):
 - 跟踪用户的原始目标。用户中途问别的问题时，回答完后回到原任务。
 - 每次工具返回结果后，检查是否回答了用户的问题。如果没有，继续。
 - 如果你需要更多信息才能继续，直接问用户。
+
+## 记住指令
+
+- 当用户说"记住"、"以后都这样"、"按此执行"等时，使用 save_memory 保存。
+- 记忆会在每次对话时自动注入，让指令贯穿整个会话。
 
 ## 工具使用
 
@@ -222,14 +226,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
                     "role": "system",
                     "content": "[已注册的自定义 API]:\n" + "\n".join(apis)
                 })
-
-        # 注入当前会话简报
-        if self._brief:
-            messages.insert(1, {
-                "role": "system",
-                "content": f"[当前会话简报]:\n{self._brief}"
-            })
-
+ 
         # 注入相关记忆（本地 JSON 搜索，~5ms）
         user_query = self.current_user_input or ""
         if user_query and not self._compressing:
