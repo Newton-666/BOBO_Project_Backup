@@ -569,7 +569,7 @@ def handle_slash_exec(params: dict, rid: str) -> dict:
     command = params.get("command", "")
     sid = params.get("session_id", "")
     if command == "help":
-        return _ok(rid, {"output": "可用命令: /help, /clear, /tools, /exit, /sessions"})
+        return _ok(rid, {"output": "可用命令: /help, /clear, /tools, /settings, /exit, /sessions"})
     elif command == "clear":
         _emit("session.cleared", sid, {"session_id": sid})
         return _ok(rid, {"output": ""})
@@ -577,6 +577,22 @@ def handle_slash_exec(params: dict, rid: str) -> dict:
         from tools import TOOLS_SCHEMA
         names = [t.get("function", t).get("name", "") for t in TOOLS_SCHEMA]
         return _ok(rid, {"output": "可用工具:\n  " + "\n  ".join(names)})
+    elif command == "settings":
+        from config import API_MODEL_NAME, ACTIVE_PROVIDER
+        lines = [
+            f"Bobo 当前配置:",
+            f"  提供商: {ACTIVE_PROVIDER}",
+            f"  模型: {API_MODEL_NAME}",
+            f"",
+            f"要修改配置，直接在聊天中说:",
+            f"  \"切换到 OpenAI\"",
+            f"  \"使用 gpt-4o 模型\"",
+            f"  \"更新 API 密钥\"",
+            f"  \"查看我的配置\"",
+            f"",
+            f"配置文件位置: ~/.bobo/.env",
+        ]
+        return _ok(rid, {"output": "\n".join(lines)})
     else:
         return _ok(rid, {"output": f"未知命令: /{command}"})
 
