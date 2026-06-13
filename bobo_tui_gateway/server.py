@@ -336,10 +336,23 @@ def handle_session_resume(params: dict, rid: str) -> dict:
 @method("session.close")
 def handle_session_close(params: dict, rid: str) -> dict:
     sid = params.get("session_id", "")
-    # 关闭前保存
     _save_session_to_disk(sid)
     _sessions.pop(sid, None)
     return _ok(rid, {"closed": sid})
+
+
+@method("session.delete")
+def handle_session_delete(params: dict, rid: str) -> dict:
+    sid = params.get("session_id", "")
+    mgr = _get_session_mgr()
+    path = mgr.session_dir / f"{sid}.json"
+    if path.exists():
+        path.unlink()
+    bak = path.with_suffix(".json.bak")
+    if bak.exists():
+        bak.unlink()
+    _sessions.pop(sid, None)
+    return _ok(rid, {"deleted": sid})
 
 
 @method("session.interrupt")
