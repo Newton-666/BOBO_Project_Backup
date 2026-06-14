@@ -359,6 +359,8 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 msg["tool_calls"] = tool_calls
             self.history.append(msg)
             self._record_message("assistant", content=content)
+        elif role == "system":
+            self.history.append({"role": "system", "content": content})
         elif role == "tool" and tool_results:
             self.history.extend(tool_results)
 
@@ -379,6 +381,31 @@ class Engine(ContextMixin, ToolRunnerMixin):
         for em in emojis:
             text = text.replace(em, '')
         return text
+
+    def _needs_verification(self, content: str) -> bool:
+        """Check if the LLM's response needs verification."""
+        # Only trigger on the first step (no prior tool calls)
+        if self.current_tool_round > 0:
+            return False
+        # Check for completion claims without tool evidence
+        completion_markers = ["已完成", "已经完成", "已创建", "已写入",
+                              "done", "finished", "created", "written",
+                              "fixed", "已修复", "已修改", "已添加", "已删除"]
+        text_lower = content.lower()
+        for marker in completion_markers:
+            if marker.lower() in text_lower:
+                return True
+        return False
+
+    def _append_verification_note(self):
+        """Inject a verification note asking the LLM to confirm its work."""
+        note = (
+            "[验证] 你声称完成了操作，但本轮没有调用任何工具。\n"
+            "如果你确实完成了，请提供具体证据（文件路径、返回值、截图等）。\n"
+            "如果你实际上没有执行操作，请如实告知用户。\n"
+            "如果你需要重新执行，请使用对应的工具。"
+        )
+        self._append_to_history("system", note)
 
     def _extract_response(self, response) -> tuple:
         try:
@@ -417,7 +444,16 @@ class Engine(ContextMixin, ToolRunnerMixin):
             if tool_calls:
                 self.state = self.STATE_EXECUTING
             else:
-                self.state = self.STATE_RESPONDING
+                # 检查是否需要验证：LLM 声称完成但没有使用任何工具
+                if content and self._needs_verification(content):
+                    self._append_to_history("assistant", content)
+                    self._append_verification_note()
+                    self._pending_content = None
+                    self._pending_tool_calls = None
+                    self.current_depth += 1
+                    self.state = self.STATE_THINKING
+                else:
+                    self.state = self.STATE_RESPONDING
         elif self.state == self.STATE_EXECUTING:
             tool_results = self._execute_tool_loop(self._pending_tool_calls)
             self._append_to_history("assistant", self._pending_content,
