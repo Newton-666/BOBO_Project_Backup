@@ -109,6 +109,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
 - 工具失败时，尝试至少一种替代方法（web_search 超时就改 web_extract，grep 失败就改 os.walk）。
 - 所有方法都失败时，直接告诉用户"我做不到"以及原因。不要假装成功。
 - 每次声称完成时，提供具体证据（文件路径、返回值）。
+- 删除、移动、重命名的文件会自动备份到回收站（~/.bobo/trash/），可用 restore_checkpoint 撤销。
 
 ## 技能
 

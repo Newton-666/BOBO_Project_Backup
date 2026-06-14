@@ -4,6 +4,7 @@ obsidian_tools.py - Obsidian 笔记操作工具（修复版）
 
 import os
 import re
+import time
 import subprocess
 from pathlib import Path
 from config import OBSIDIAN_VAULT, BOBO_FOLDER, BLOCKED_FOLDERS
@@ -225,11 +226,59 @@ def move_note(source: str, destination: str) -> str:
         os.makedirs(dst_dir, exist_ok=True)
     
     try:
+        _trash_file(src)
+        _trash_file(dst)  # backup destination if it exists
         import shutil
         shutil.move(src, dst)
-        return f"✅ 已移动: {source} -> {destination}"
+        _cleanup_trash()
+        return f"✅ 已移动: {source} -> {destination}（可撤销）"
     except Exception as e:
         return f"❌ 移动失败: {str(e)}"
+
+
+TRASH_DIR = os.path.join(os.path.expanduser("~/.bobo"), "trash")
+
+def _trash_file(filepath: str) -> str | None:
+    """Move a file to trash before deletion/overwrite. Returns trash path or None."""
+    if not os.path.exists(filepath):
+        return None
+    os.makedirs(TRASH_DIR, exist_ok=True)
+    ts = int(time.time())
+    name = os.path.basename(filepath)
+    trash_path = os.path.join(TRASH_DIR, f"{name}_{ts}")
+    try:
+        import shutil
+        shutil.copy2(filepath, trash_path)
+        return trash_path
+    except Exception:
+        return None
+
+
+def _list_trash() -> list:
+    """List files in trash, sorted by newest first."""
+    if not os.path.isdir(TRASH_DIR):
+        return []
+    items = []
+    for f in os.listdir(TRASH_DIR):
+        full = os.path.join(TRASH_DIR, f)
+        if os.path.isfile(full):
+            items.append((os.path.getmtime(full), f))
+    items.sort(reverse=True)
+    return [name for _, name in items]
+
+
+def _cleanup_trash(max_age_hours: int = 24):
+    """Remove trash files older than max_age_hours."""
+    if not os.path.isdir(TRASH_DIR):
+        return
+    now = time.time()
+    for f in os.listdir(TRASH_DIR):
+        full = os.path.join(TRASH_DIR, f)
+        if os.path.isfile(full) and now - os.path.getmtime(full) > max_age_hours * 3600:
+            try:
+                os.remove(full)
+            except Exception:
+                pass
 
 
 def delete_note(filename: str) -> str:
@@ -242,8 +291,10 @@ def delete_note(filename: str) -> str:
         return f"我注意到 {filename} 这个文件在你的笔记库里没有找到。要不要先创建它？"
     
     try:
+        _trash_file(filepath)
         os.remove(filepath)
-        return f"✅ 已删除: {filename}"
+        _cleanup_trash()
+        return f"✅ 已删除: {filename}（可撤销）"
     except Exception as e:
         return f"❌ 删除失败: {str(e)}"
 
@@ -259,8 +310,10 @@ def rename_note(old_name: str, new_name: str) -> str:
         return f"我注意到 {old_name} 这个文件不存在。请检查文件名。"
     
     try:
+        _trash_file(old_path)
         os.rename(old_path, new_path)
-        return f"✅ 已重命名: {old_name} -> {new_name}"
+        _cleanup_trash()
+        return f"✅ 已重命名: {old_name} -> {new_name}（可撤销）"
     except Exception as e:
         return f"❌ 重命名失败: {str(e)}"
 

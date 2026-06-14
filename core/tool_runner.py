@@ -284,14 +284,50 @@ class ToolRunnerMixin:
             return f"❌ 回滚失败: {str(e)}"
 
     def _handle_restore_checkpoint(self, tc: dict, tool_results: list):
-        """Handle restore_checkpoint tool inline (needs engine context)."""
+        """Handle restore_checkpoint tool inline (needs engine context).
+        Supports: file checkpoint restore, trash restore, trash listing."""
+        import os
         args_str = tc.get("function", {}).get("arguments", "{}")
         try:
             tool_args = json.loads(args_str)
         except Exception:
             tool_args = {}
-        result = self._restore_checkpoint(tool_args.get("path", ""))
-        self._notify("tool_result", {"name": "restore_checkpoint", "args": tool_args, "result": result[:200], "duration": 0, "success": True})
+        path = tool_args.get("path", "")
+
+        # Trash operations
+        if path == "__list_trash__":
+            from tools.obsidian_tools import _list_trash
+            items = _list_trash()
+            if not items:
+                result = "回收站为空"
+            else:
+                lines = ["回收站中的文件:"]
+                for i, name in enumerate(items[:20], 1):
+                    lines.append(f"  {i}. {name}")
+                result = "\n".join(lines)
+        elif path and path.startswith("trash:"):
+            trash_name = path.split(":", 1)[1]
+            trash_dir = os.path.expanduser("~/.bobo/trash")
+            trash_path = os.path.join(trash_dir, trash_name)
+            if not os.path.exists(trash_path):
+                result = f"回收站中未找到: {trash_name}"
+            else:
+                # Try to restore to original location (extract from backup name)
+                vault = os.environ.get("OBSIDIAN_VAULT", "")
+                base_name = trash_name.rsplit("_", 1)[0]  # remove timestamp
+                restore_path = os.path.join(vault, base_name) if vault else os.path.join(os.getcwd(), base_name)
+                if os.path.exists(restore_path):
+                    result = f"文件已存在: {restore_path}，请先删除旧文件再恢复"
+                else:
+                    import shutil
+                    os.makedirs(os.path.dirname(restore_path) or ".", exist_ok=True)
+                    shutil.move(trash_path, restore_path)
+                    result = f"✅ 已从回收站恢复: {trash_name}"
+        else:
+            # Normal checkpoint restore
+            result = self._restore_checkpoint(path)
+
+        self._notify("restore_checkpoint", {"name": "restore_checkpoint", "args": tool_args, "result": result[:200], "duration": 0, "success": True})
         tool_results.append({"tool_call_id": tc.get("id", ""), "role": "tool", "content": result[:self.MAX_TOOL_RESULT_LENGTH]})
         self._record_message("tool_result", result=result[:200])
 
