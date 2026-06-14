@@ -101,20 +101,40 @@ class Engine(ContextMixin, ToolRunnerMixin):
 
 ## 用户资料
 
-- 当用户提供个人信息（名字、偏好、语言、风格）时，使用 bobo_profile 保存。
-- 用户资料会在每次对话时自动注入，立即可用。
+- 当用户提供个人信息（名字、语言偏好、风格等）时，使用 save_memory(target="profile", memory_type="key") 保存。
+- 用户资料与记忆分开存储，同样会在每次对话时自动注入。
 
 ## 可信度
 
 - 工具失败时，尝试至少一种替代方法（web_search 超时就改 web_extract，grep 失败就改 os.walk）。
 - 所有方法都失败时，直接告诉用户"我做不到"以及原因。不要假装成功。
 - 每次声称完成时，提供具体证据（文件路径、返回值）。
+- 删除、移动、重命名的文件会自动备份到回收站（~/.bobo/trash/），可用 restore_checkpoint 撤销。
 
 ## 技能
 
 - [可参考的技能工作流] 是预设的工作路线参考，帮助你理解如何分解复杂任务。
 - 技能不是硬编码步骤。根据用户实际环境和可用工具调整每个步骤的方法。
 - 如果某个技能步骤不适合当前情况，用其他工具替代来实现相同目标。
+
+## 创建技能
+
+- 用户可以说"开始教学"来录制当前对话为技能。
+- 录制完成后说"保存为 skill <名称>"，Bobo 会保存到 skills/ 目录。
+- 用户也可以直接在 skills/ 目录编写 .yaml 文件。
+- 个人技能保存在本地，不会提交到 GitHub（skills/*.yaml 已被 gitignore）。
+
+## 工具并行
+
+- 独立的操作（如搜索多个关键词）可以同时发送，不需要逐个等待。
+- LLM 可以一次性发出多个工具调用，引擎会并行执行。
+
+## 会话记忆
+
+- 用户说"继续昨天的工作"、"接着上次的文件"时，先检查 [相关记忆] 中是否有记录。
+- 如果记忆中没有，再搜索笔记库。
+- 每完成一项主要工作，自动保存当前文件路径到记忆：save_memory("工作文件: <path>")。
+- 这样下次继续时可以直接定位到文件，无需重新搜索。
 
 ## 工具使用
 
@@ -352,6 +372,8 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 msg["tool_calls"] = tool_calls
             self.history.append(msg)
             self._record_message("assistant", content=content)
+        elif role == "system":
+            self.history.append({"role": "system", "content": content})
         elif role == "tool" and tool_results:
             self.history.extend(tool_results)
 
@@ -372,6 +394,31 @@ class Engine(ContextMixin, ToolRunnerMixin):
         for em in emojis:
             text = text.replace(em, '')
         return text
+
+    def _needs_verification(self, content: str) -> bool:
+        """Check if the LLM's response needs verification."""
+        # Only trigger on the first step (no prior tool calls)
+        if self.current_tool_round > 0:
+            return False
+        # Check for completion claims without tool evidence
+        completion_markers = ["已完成", "已经完成", "已创建", "已写入",
+                              "done", "finished", "created", "written",
+                              "fixed", "已修复", "已修改", "已添加", "已删除"]
+        text_lower = content.lower()
+        for marker in completion_markers:
+            if marker.lower() in text_lower:
+                return True
+        return False
+
+    def _append_verification_note(self):
+        """Inject a verification note asking the LLM to confirm its work."""
+        note = (
+            "[验证] 你声称完成了操作，但本轮没有调用任何工具。\n"
+            "如果你确实完成了，请提供具体证据（文件路径、返回值、截图等）。\n"
+            "如果你实际上没有执行操作，请如实告知用户。\n"
+            "如果你需要重新执行，请使用对应的工具。"
+        )
+        self._append_to_history("system", note)
 
     def _extract_response(self, response) -> tuple:
         try:
@@ -410,7 +457,16 @@ class Engine(ContextMixin, ToolRunnerMixin):
             if tool_calls:
                 self.state = self.STATE_EXECUTING
             else:
-                self.state = self.STATE_RESPONDING
+                # 检查是否需要验证：LLM 声称完成但没有使用任何工具
+                if content and self._needs_verification(content):
+                    self._append_to_history("assistant", content)
+                    self._append_verification_note()
+                    self._pending_content = None
+                    self._pending_tool_calls = None
+                    self.current_depth += 1
+                    self.state = self.STATE_THINKING
+                else:
+                    self.state = self.STATE_RESPONDING
         elif self.state == self.STATE_EXECUTING:
             tool_results = self._execute_tool_loop(self._pending_tool_calls)
             self._append_to_history("assistant", self._pending_content,

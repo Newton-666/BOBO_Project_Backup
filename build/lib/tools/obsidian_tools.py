@@ -4,6 +4,7 @@ obsidian_tools.py - Obsidian 笔记操作工具（修复版）
 
 import os
 import re
+import time
 import subprocess
 from pathlib import Path
 from config import OBSIDIAN_VAULT, BOBO_FOLDER, BLOCKED_FOLDERS
@@ -24,7 +25,8 @@ def _normalize_path(filename: str, is_destination: bool = False) -> str:
     if filename.startswith("./"):
         filename = filename[2:]
     
-    if not is_destination and not filename.endswith(".md"):
+    # 只在文件名完全没有扩展名时才追加 .md
+    if not is_destination and not filename.endswith(".md") and "." not in os.path.basename(filename):
         filename += ".md"
     
     if is_destination:
@@ -117,7 +119,7 @@ def search_obsidian_notes(query: str) -> str:
                             if query.lower() in content.lower():
                                 rel_path = os.path.relpath(filepath, OBSIDIAN_VAULT)
                                 results.append(rel_path)
-                    except:
+                    except Exception:
                         pass
                 if len(results) >= 100:  # 防止搜索过大
                     break
@@ -134,7 +136,7 @@ def search_obsidian_notes(query: str) -> str:
     return summary + ":\n" + "\n".join(f"- {r}" for r in display)
 
 
-def read_obsidian_note(filename: str) -> str:
+def read_obsidian_note(filename: str, section: int = 0) -> str:
     filepath = _normalize_path(filename, is_destination=False)
     
     # 多个同名文件时，让用户选择
@@ -151,9 +153,54 @@ def read_obsidian_note(filename: str) -> str:
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
-        return content
     except Exception as e:
         return f"❌ 读取失败: {str(e)}"
+    
+    # 短文件直接返回
+    if len(content) < 30000 and section == 0:
+        return content
+    
+    # 读取特定章节
+    if section > 0:
+        section_size = 8000
+        start = (section - 1) * section_size
+        end = start + section_size
+        if start >= len(content):
+            return f"笔记共 {len(content)} 字符，最大章节索引为 {(len(content) - 1) // section_size + 1}"
+        return content[start:min(end, len(content))]
+    
+    # 长文件: 分章节摘要
+    section_size = 8000  # 每章节 8000 字符
+    sections = []
+    for i in range(0, min(len(content), 80000), section_size):
+        chunk = content[i:i + section_size]
+        lines = chunk.split("\n")
+        # 提取章节标题和第一句有意义的句子
+        heading = ""
+        first_sentence = ""
+        date_found = ""
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                heading = stripped.lstrip("#").strip()
+            elif not first_sentence and stripped and not stripped.startswith("#") and len(stripped) > 10:
+                first_sentence = stripped[:80]
+            # 尝试匹配日期 (YYYY-MM-DD 或 YYYY年MM月DD日)
+            if not date_found:
+                m = re.search(r"\d{4}[-年]\d{1,2}[-月]\d{1,2}", stripped)
+                if m:
+                    date_found = m.group()[:12]
+        section_num = i // section_size + 1
+        label = heading or date_found or f"第{section_num}节"
+        sections.append(f"  [{section_num}] {label}: {first_sentence or '(内容)'} ({len(chunk)} 字符)")
+    
+    total_sections = len(sections)
+    total_chars = len(content)
+    return (
+        f"笔记较长 ({total_chars:,} 字符)，已分为 {total_sections} 个章节:\n"
+        + "\n".join(sections)
+        + f"\n\n要读取具体章节，请说: '读取第 N 章' 或 'read section N'"
+    )
 
 
 def list_folder(folder_path: str = "") -> str:
@@ -225,11 +272,59 @@ def move_note(source: str, destination: str) -> str:
         os.makedirs(dst_dir, exist_ok=True)
     
     try:
+        _trash_file(src)
+        _trash_file(dst)  # backup destination if it exists
         import shutil
         shutil.move(src, dst)
-        return f"✅ 已移动: {source} -> {destination}"
+        _cleanup_trash()
+        return f"✅ 已移动: {source} -> {destination}（可撤销）"
     except Exception as e:
         return f"❌ 移动失败: {str(e)}"
+
+
+TRASH_DIR = os.path.join(os.path.expanduser("~/.bobo"), "trash")
+
+def _trash_file(filepath: str) -> str | None:
+    """Move a file to trash before deletion/overwrite. Returns trash path or None."""
+    if not os.path.exists(filepath):
+        return None
+    os.makedirs(TRASH_DIR, exist_ok=True)
+    ts = int(time.time())
+    name = os.path.basename(filepath)
+    trash_path = os.path.join(TRASH_DIR, f"{name}_{ts}")
+    try:
+        import shutil
+        shutil.copy2(filepath, trash_path)
+        return trash_path
+    except Exception:
+        return None
+
+
+def _list_trash() -> list:
+    """List files in trash, sorted by newest first."""
+    if not os.path.isdir(TRASH_DIR):
+        return []
+    items = []
+    for f in os.listdir(TRASH_DIR):
+        full = os.path.join(TRASH_DIR, f)
+        if os.path.isfile(full):
+            items.append((os.path.getmtime(full), f))
+    items.sort(reverse=True)
+    return [name for _, name in items]
+
+
+def _cleanup_trash(max_age_hours: int = 24):
+    """Remove trash files older than max_age_hours."""
+    if not os.path.isdir(TRASH_DIR):
+        return
+    now = time.time()
+    for f in os.listdir(TRASH_DIR):
+        full = os.path.join(TRASH_DIR, f)
+        if os.path.isfile(full) and now - os.path.getmtime(full) > max_age_hours * 3600:
+            try:
+                os.remove(full)
+            except Exception:
+                pass
 
 
 def delete_note(filename: str) -> str:
@@ -242,8 +337,10 @@ def delete_note(filename: str) -> str:
         return f"我注意到 {filename} 这个文件在你的笔记库里没有找到。要不要先创建它？"
     
     try:
+        _trash_file(filepath)
         os.remove(filepath)
-        return f"✅ 已删除: {filename}"
+        _cleanup_trash()
+        return f"✅ 已删除: {filename}（可撤销）"
     except Exception as e:
         return f"❌ 删除失败: {str(e)}"
 
@@ -259,8 +356,10 @@ def rename_note(old_name: str, new_name: str) -> str:
         return f"我注意到 {old_name} 这个文件不存在。请检查文件名。"
     
     try:
+        _trash_file(old_path)
         os.rename(old_path, new_path)
-        return f"✅ 已重命名: {old_name} -> {new_name}"
+        _cleanup_trash()
+        return f"✅ 已重命名: {old_name} -> {new_name}（可撤销）"
     except Exception as e:
         return f"❌ 重命名失败: {str(e)}"
 

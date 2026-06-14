@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bobo-agent"
-version = "0.2.1"
+version = "0.2.2"
 description = "Bobo — a personal AI agent for your terminal, Obsidian, and email"
 readme = "README.md"
 license = {text = "MIT"}
@@ -29,4 +29,4 @@ bobo = "bobo_tui_gateway.entry:main"
 include = ["bobo_tui_gateway*", "core*", "tools*"]
 
 [tool.setuptools.package-data]
-bobo_tui_gateway = ["static/entry.js"]
+bobo_tui_gateway = ["static/entry.js", "static/package.json"]

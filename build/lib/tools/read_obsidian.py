@@ -2,9 +2,9 @@
 
 TOOL_NAME = "read_obsidian"
 
-def execute(filename: str) -> str:
+def execute(filename: str, section: int = 0) -> str:
     from .obsidian_tools import read_obsidian_note
-    return read_obsidian_note(filename)
+    return read_obsidian_note(filename, section)
 
 TOOL_FUNC = execute
 TOOL_SCHEMA = {
