@@ -104,6 +104,12 @@ class Engine(ContextMixin, ToolRunnerMixin):
 - 当用户提供个人信息（名字、偏好、语言、风格）时，使用 bobo_profile 保存。
 - 用户资料会在每次对话时自动注入，立即可用。
 
+## 可信度
+
+- 工具失败时，尝试至少一种替代方法（web_search 超时就改 web_extract，grep 失败就改 os.walk）。
+- 所有方法都失败时，直接告诉用户"我做不到"以及原因。不要假装成功。
+- 每次声称完成时，提供具体证据（文件路径、返回值）。
+
 ## 工具使用
 
 - 搜索信息 → web_search / search_obsidian / cross_search
@@ -212,6 +218,11 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 "content": f"[自上次调用以来的文件变更:]\n{self._pending_diff[:2000]}"
             })
             self._pending_diff = ""
+
+        # 验证提示：如果最近一次回复声称完成但没有工具调用证据，提醒 LLM
+        if messages and messages[-1].get("role") == "tool":
+            # 前一条是工具结果，LLM 即将生成回复 — 让它意识到需要基于真实结果回答
+            pass  # 工具结果本身已经提供了足够的上下文
 
         # 注入已注册的自定义 API 列表
         apis_dir = os.path.expanduser("~/.bobo/apis")

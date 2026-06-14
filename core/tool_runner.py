@@ -48,6 +48,18 @@ class ToolRunnerMixin:
         from core.tool_executor import execute_tool as _execute_tool
         from tools import TOOLS_SCHEMA
 
+        # 工具失败时的替代建议
+        _TOOL_FALLBACKS = {
+            "web_search": "web_fetch(url), open_url(url)",
+            "web_fetch": "web_search(query), open_url(url)",
+            "search_obsidian": "read_local_file(path), list_directory(path)",
+            "notion_search": "notion_read_page(page_id)",
+            "read_local_file": "list_directory(path), execute_terminal('cat /path')",
+            "execute_terminal": "代码执行可以通过 code_execution 工具",
+            "notion_create_page": "file_writer(path), write_obsidian(path)",
+            "search_emails": "read_email_content(email_id)",
+        }
+
         # Build a quick lookup: tool_name -> description + params
         _schema_map = {}
         for t in TOOLS_SCHEMA:
@@ -170,8 +182,11 @@ class ToolRunnerMixin:
                     for pname, pinfo in props.items():
                         ptype = pinfo.get("type", "string")
                         hints.append(f"  {pname}:{ptype}={tool_args.get(pname, '?')}")
-                    hint = "\n参数: " + ", ".join(hints[:5])
+                    hint = "\\n参数: " + ", ".join(hints[:5])
+                alt_hints = _TOOL_FALLBACKS.get(tool_name, "")
                 result = f"错误: 工具 '{tool_name}' 执行异常: {error_detail[:200]}{hint}"
+                if alt_hints:
+                    result += f"\\n可尝试: {alt_hints}"
             duration = time.time() - start_time
 
             is_error = result.startswith("错误")
