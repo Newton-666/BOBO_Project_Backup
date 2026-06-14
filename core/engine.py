@@ -116,6 +116,13 @@ class Engine(ContextMixin, ToolRunnerMixin):
 - 技能不是硬编码步骤。根据用户实际环境和可用工具调整每个步骤的方法。
 - 如果某个技能步骤不适合当前情况，用其他工具替代来实现相同目标。
 
+## 创建技能
+
+- 用户可以说"开始教学"来录制当前对话为技能。
+- 录制完成后说"保存为 skill <名称>"，Bobo 会保存到 skills/ 目录。
+- 用户也可以直接在 skills/ 目录编写 .yaml 文件。
+- 个人技能保存在本地，不会提交到 GitHub（skills/*.yaml 已被 gitignore）。
+
 ## 工具使用
 
 - 搜索信息 → web_search / search_obsidian / cross_search
