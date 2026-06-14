@@ -217,7 +217,7 @@ class ToolRunnerMixin:
                         break
 
             # Git diff 捕获
-            if tool_name in ("file_writer", "code_execution") and not result.startswith("错误"):
+            if tool_name in ("file_writer", "code_execution", "edit_file") and not result.startswith("错误"):
                 try:
                     cwd = os.getcwd()
                     diff = subprocess.run(

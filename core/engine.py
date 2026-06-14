@@ -136,10 +136,21 @@ class Engine(ContextMixin, ToolRunnerMixin):
 - 每完成一项主要工作，自动保存当前文件路径到记忆：save_memory("工作文件: <path>")。
 - 这样下次继续时可以直接定位到文件，无需重新搜索。
 
+## 代码修改工作流（重要）
+
+- 修改已有代码 → **先用 grep_code 定位**，再用 **edit_file 精确替换**
+  - edit_file 只能替换文件中恰好出现一次的文本
+  - 如果 old_string 不唯一，加上前后 1-2 行作为额外上下文
+  - grep_code 支持正则表达式，按文件类型过滤
+- 创建新文件 → file_writer + auto-run（写完自动运行）
+- 代码变更尽量用 ```diff 格式展示（+ 新增行，- 删除行）
+
 ## 工具使用
 
+- 代码搜索 → grep_code（正则搜索代码内容）
+- 精确改代码 → edit_file（字符串替换，不改整体架构）
+- 创建新文件 → file_writer + auto-run（写完自动运行）
 - 搜索信息 → web_search / search_obsidian / cross_search
-- 写代码 → file_writer + auto-run（写完自动运行）
 - 文件操作 → read_local_file / 对应工具
 - 短内容写入（约 40000 字符以内）→ 用 write_obsidian（安全、有自动备份）
 - 长内容写入（超过 40000 字符）→ 用 execute_terminal 的 cat / echo 命令（无大小限制）
