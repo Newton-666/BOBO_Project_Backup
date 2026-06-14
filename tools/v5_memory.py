@@ -273,35 +273,24 @@ def register(reg):
         "type": "function",
         "function": {
             "name": "save_memory",
-            "description": """【用途】保存永久性知识到长期记忆库。
-
-适用场景：
-- 记住事实、知识点、偏好（如"我喜欢Python"）
-- 不会过期的信息
-
-不适用场景：
-- 有时间限制的事情（如"明天开会"）→ 请用 set_reminder
-
-示例：
-- "记住我的邮箱是 xxx@example.com" → 保存到记忆
-- "记住我喜欢喝咖啡" → 保存到记忆""",
+            "description": "Save info to memory (target=memory) or user profile (target=profile, memory_type=key).\nExamples:\n- save fact -> target=memory\n- save user name -> target=profile, memory_type=name",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "content": {"type": "string"},
-                    "memory_type": {"type": "string"}
+                    "memory_type": {"type": "string", "description": "memory type or profile key name"},
+                    "target": {"type": "string", "enum": ["memory", "profile"], "default": "memory"}
                 },
                 "required": ["content"]
             }
         }
     })
-    
+
     reg("search_memory", search_knowledge_base, {
         "type": "function",
         "function": {
             "name": "search_memory",
-            "description": """【用途】在长期记忆库中搜索之前保存的信息。
-【适用场景】用户问"还记得XX吗"、"我之前让你记住的XX是什么"。""",
+            "description": "Search saved memories or user profile.",
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string"}},

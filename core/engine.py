@@ -101,8 +101,8 @@ class Engine(ContextMixin, ToolRunnerMixin):
 
 ## 用户资料
 
-- 当用户提供个人信息（名字、偏好、语言、风格）时，使用 bobo_profile 保存。
-- 用户资料会在每次对话时自动注入，立即可用。
+- 当用户提供个人信息（名字、语言偏好、风格等）时，使用 save_memory(target="profile", memory_type="key") 保存。
+- 用户资料与记忆分开存储，同样会在每次对话时自动注入。
 
 ## 可信度
 
