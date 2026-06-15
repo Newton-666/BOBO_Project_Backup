@@ -48,16 +48,50 @@ class ToolRunnerMixin:
         from core.tool_executor import execute_tool as _execute_tool
         from tools import TOOLS_SCHEMA
 
-        # 工具失败时的替代建议
+        # 工具失败时的替代建议：告诉 LLM 具体下一步做什么
         _TOOL_FALLBACKS = {
-            "web_search": "web_fetch(url), open_url(url)",
-            "web_fetch": "web_search(query), open_url(url)",
-            "search_obsidian": "read_local_file(path), list_directory(path)",
-            "notion_search": "notion_read_page(page_id)",
-            "read_local_file": "list_directory(path), execute_terminal('cat /path')",
-            "execute_terminal": "代码执行可以通过 code_execution 工具",
-            "notion_create_page": "file_writer(path), write_obsidian(path)",
-            "search_emails": "read_email_content(email_id)",
+            # Web 类
+            "web_search": "网络搜索失败 → 尝试 web_fetch(url) 直接抓取已知网页，或 open_url(url) 打开浏览器",
+            "web_fetch": "网页抓取失败 → 尝试 web_search(query) 搜索相同内容，或 web_extract(url) 提取纯文本",
+            "web_extract": "提取失败 → 尝试 web_fetch(url) 重新抓取，或直接用浏览器 open_url(url)",
+            "open_url": "打开失败 → 尝试 web_fetch(url) 获取页面内容",
+            # 文件/代码类
+            "read_local_file": "读取失败 → 检查路径，用 list_directory(path) 查看目录，或用 execute_terminal 的 cat 命令",
+            "list_directory": "列目录失败 → 用 execute_terminal('ls -la /path') 查看，或 read_local_file 逐个读取",
+            "file_operation": "文件操作失败 → 用 execute_terminal 的 cp/mv/rm 命令替代",
+            "search_code": "代码搜索失败 → 用 grep_code(pattern) 正则搜索，或用 execute_terminal('grep -r pattern path')",
+            "execute_terminal": "终端命令失败 → 检查命令语法，用 code_execution 执行脚本，或拆分为多个简单命令",
+            "file_writer": "文件写入失败 → 用 execute_terminal('cat > file') 写入，或检查目录权限",
+            "edit_file": "编辑失败 → old_string 与文件内容不完全一致（含缩进/空格），用 read_local_file 重新读取确认",
+            "grep_code": "搜索无结果 → 放宽正则表达式，或改用 file_types 不过滤先看全部文件，或用 list_directory 确定文件位置",
+            "run_tests": "测试失败 → 查看失败详情，用 grep_code 定位问题代码，用 edit_file 修复后重新 run_tests",
+            # Obsidian 类
+            "search_obsidian": "搜索无结果 → 用 grep_code 搜索本地文件，或用 list_directory 浏览 vault",
+            "read_obsidian": "读取失败 → 用 read_local_file(path) 直接读取文件",
+            "write_obsidian": "写入失败 → 用 file_writer(path) 或 execute_terminal('cat > file') 写入",
+            "append_obsidian": "追加失败 → 用 read_obsidian 读取原内容，合并后用 write_obsidian 回写",
+            "classify_note": "分类失败 → 手动用 batch_move_notes 移动到目标文件夹",
+            # Notion 类
+            "notion_search": "Notion 搜索失败 → 检查 Notion API Key 是否已配置，或用 notion_read_page(page_id) 直接读取",
+            "notion_read_page": "Notion 读取失败 → 检查 page_id 是否正确，或用 notion_search(query) 重新搜索",
+            "notion_create_page": "Notion 创建失败 → 用 write_obsidian(path) 保存到本地，或检查 Notion 权限",
+            "notion_append": "Notion 追加失败 → 用 notion_read_page 读取后用 notion_create_page 重建",
+            # Email 类
+            "search_emails": "邮件搜索失败 → 检查 ~/.bobo/mail.json 是否配置，或用 read_email_content(id) 直接读取",
+            "read_email_content": "邮件读取失败 → 用 search_emails 重新搜索，或检查邮箱配置",
+            # GitHub 类
+            "git_status": "Git 状态失败 → 用 execute_terminal('git status') 查看",
+            "github_create_repo": "创建仓库失败 → 用 execute_terminal('gh repo create') 替代，或检查 GitHub token",
+            "github_create_pr": "创建 PR 失败 → 用 execute_terminal('gh pr create') 替代",
+            # macOS 类
+            "send_notification": "通知失败 → 用 execute_terminal('osascript -e display notification') 替代",
+            "set_reminder": "提醒失败 → 用 create_calendar_event 或 execute_terminal 创建",
+            # API 类
+            "api_call": "API 调用失败 → 检查 api_register 的配置是否正确，端点路径和认证方式是否匹配",
+            "api_register": "API 注册失败 → 确认 base_url 可访问，auth_key 有效，endpoints JSON 格式正确",
+            # 通用
+            "code_execution": "代码执行失败 → 查看错误详情修复代码，或用 execute_terminal 逐行调试",
+            "save_memory": "保存失败 → 内容可能已达上限（100K 字符），用 search_memory 查看已有的，delete_entry 删除旧的",
         }
 
         # Build a quick lookup: tool_name -> description + params
@@ -174,6 +208,14 @@ class ToolRunnerMixin:
                 result = future.result(timeout=30)
             except Exception as e:
                 error_detail = str(e)
+                # 根据异常类型给出更有用的提示
+                if "Timeout" in type(e).__name__ or "timeout" in error_detail.lower():
+                    error_type_hint = "（超时，可重试一次或增加超时时间）"
+                elif "Connection" in type(e).__name__ or "connect" in error_detail.lower():
+                    error_type_hint = "（网络连接失败，检查网络后重试）"
+                else:
+                    error_type_hint = ""
+
                 schema = _schema_map.get(tool_name, {})
                 props = schema.get("properties", {})
                 hint = ""
@@ -184,9 +226,9 @@ class ToolRunnerMixin:
                         hints.append(f"  {pname}:{ptype}={tool_args.get(pname, '?')}")
                     hint = "\\n参数: " + ", ".join(hints[:5])
                 alt_hints = _TOOL_FALLBACKS.get(tool_name, "")
-                result = f"错误: 工具 '{tool_name}' 执行异常: {error_detail[:200]}{hint}"
+                result = f"错误: 工具 '{tool_name}' 执行失败{error_type_hint}: {error_detail[:200]}{hint}"
                 if alt_hints:
-                    result += f"\\n可尝试: {alt_hints}"
+                    result += f"\\n→ {alt_hints}"
             duration = time.time() - start_time
 
             is_error = result.startswith("错误")
@@ -196,7 +238,11 @@ class ToolRunnerMixin:
                 self._tool_failures[tool_name] = 0
 
             if self._tool_failures.get(tool_name, 0) >= 2:
-                result = f"错误: 工具 '{tool_name}' 持续失败，请尝试其他方法（不要再次使用此工具）"
+                alt = _TOOL_FALLBACKS.get(tool_name, "")
+                if alt:
+                    result = f"⚠️ 工具 '{tool_name}' 已连续失败 2 次，请停止使用此工具。\n{alt}"
+                else:
+                    result = f"⚠️ 工具 '{tool_name}' 已连续失败 2 次，请考虑完全不同的方法来解决用户的问题，而非继续用此工具"
 
             result = self._redact_secrets(result)
 
