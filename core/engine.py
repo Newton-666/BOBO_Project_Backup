@@ -144,6 +144,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
   - 如果 old_string 不唯一，加上前后 1-2 行作为额外上下文
   - grep_code 支持正则表达式，按文件类型过滤
 - 创建新文件 → file_writer + auto-run（写完自动运行）
+- **修改代码后 → run_tests 验证**，测试失败 → grep_code 定位 → edit_file 修复 → run_tests 再次验证
 - 代码变更尽量用 ```diff 格式展示（+ 新增行，- 删除行）
 
 ## 工具使用
