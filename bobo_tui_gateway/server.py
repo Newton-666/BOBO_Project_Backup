@@ -705,6 +705,7 @@ def handle_shell_exec(params: dict, rid: str) -> dict:
     command = params.get("command", "")
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=10)
+        # shell=True 仅用于 TUI 斜杠命令，引擎内的 execute_terminal 有安全分级
         output = result.stdout or result.stderr or "(无输出)"
         return _ok(rid, {"output": output.strip()})
     except Exception as e:

@@ -161,6 +161,13 @@ class Engine(ContextMixin, ToolRunnerMixin):
 - 文件列表 → list_directory
 - 普通聊天 → 直接回答
 
+## 命令安全
+
+- execute_terminal 的白名单命令（git, python, npm, ls, cat 等）静默执行，不需要确认
+- 灰名单命令会弹窗让用户确认
+- 高危操作（rm -rf, sudo, chmod 777, dd, 管道执行远程脚本）会被自动拦截
+- 不要绕过分级：如果命令被拦截，尝试用白名单内的命令组合实现相同目标
+
 ## 输出格式
 
 - 代码用 markdown 代码块包裹，标明语言
@@ -481,16 +488,89 @@ class Engine(ContextMixin, ToolRunnerMixin):
         elif role == "tool" and tool_results:
             self.history.extend(tool_results)
 
+    # ── 命令安全分级 ──
+
+    # 白名单：日常安全命令，静默执行
+    SAFE_COMMANDS = {
+        "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
+        "pip", "pip3", "cd", "pwd", "mkdir", "cp", "mv", "grep", "find", "head",
+        "tail", "wc", "curl", "wget", "du", "df", "whoami", "date", "env",
+        "which", "man", "diff", "sort", "uniq", "touch", "file", "stat",
+        "less", "more", "clear", "history", "type", "uname", "hostname",
+        "go", "cargo", "rustc", "make", "cmake", "docker", "ps", "top",
+        "tree", "xargs", "awk", "sed", "tr",
+    }
+
+    # 黑名单：永远阻止的高危模式
+    DANGEROUS_PATTERNS = [
+        (r'rm\s+(-[rRf]|--recursive|--force)', "递归删除文件"),
+        (r'sudo\s+', "提权操作"),
+        (r'(chmod|chown)\s+.*777', "开放全部权限"),
+        (r'>\s*/dev/[sh]d[a-z]', "直接写入磁盘设备"),
+        (r'\bdd\s+if=', "磁盘镜像操作"),
+        (r'mkfs\.', "格式化文件系统"),
+        (r':\(\)\s*\{', "fork 炸弹"),
+        (r'>\s*/etc/(passwd|shadow|sudoers|hosts)', "修改系统关键文件"),
+        (r'(shutdown|reboot|halt|poweroff)', "系统关机/重启"),
+        (r'curl.*\|\s*(ba)?sh', "管道执行远程脚本"),
+        (r'wget.*\|\s*(ba)?sh', "管道执行远程脚本"),
+        (r'git\s+push\s+.*--force', "强制推送"),
+        (r'(scp|rsync|nc|netcat)\s+.*:', "远程文件传输/网络连接"),
+    ]
+
+    def _classify_command(self, command: str) -> tuple[str, str]:
+        """分类命令：safe / dangerous / gray。返回 (等级, 原因)。"""
+        if not command or not command.strip():
+            return ("safe", "")
+
+        cmd_clean = command.strip()
+        base_cmd = cmd_clean.split()[0] if cmd_clean.split() else ""
+
+        # 检查黑名单
+        import re as _re
+        for pattern, reason in self.DANGEROUS_PATTERNS:
+            if _re.search(pattern, cmd_clean):
+                return ("dangerous", reason)
+
+        # 检查白名单
+        if base_cmd in self.SAFE_COMMANDS:
+            return ("safe", "")
+
+        # 管道中的每个命令都要检查
+        if "|" in cmd_clean:
+            all_safe = True
+            for segment in cmd_clean.split("|"):
+                seg_cmd = segment.strip().split()[0] if segment.strip().split() else ""
+                if seg_cmd and seg_cmd not in self.SAFE_COMMANDS:
+                    all_safe = False
+                    break
+            if all_safe:
+                return ("safe", "")
+
+        return ("gray", f"未知安全等级的命令: {base_cmd}")
+
     def _is_high_risk_tool(self, tool_name: str, tool_args: dict) -> Tuple[bool, str]:
         if tool_name == "execute_terminal":
             command = tool_args.get("command", "")
-            dangerous_patterns = [r'rm\s+(-rf?|--recursive)\s+', r'sudo\s+', r'chmod\s+777\s+']
-            for pattern in dangerous_patterns:
-                if re.search(pattern, command):
-                    return True, f"危险命令: {command[:50]}"
-            return True, f"执行终端命令"
+            level, reason = self._classify_command(command)
+            if level == "dangerous":
+                return True, f"🚫 危险操作 — {reason}: {command[:60]}"
+            if level == "gray":
+                return True, f"执行终端命令: {command[:60]}"
+            # safe — 静默执行，不需要确认
+            return False, ""
+
         if tool_name in ["delete_note", "move_note", "rename_note", "delete_folder"]:
             return True, f"文件操作: {tool_name}"
+
+        # shell.exec RPC 方法始终需要确认（来自 TUI 直接输入）
+        if tool_name == "shell.exec":
+            command = tool_args.get("command", "")
+            level, reason = self._classify_command(command)
+            if level == "dangerous":
+                return True, f"🚫 危险操作 — {reason}: {command[:60]}"
+            return True, f"执行终端命令: {command[:60]}"
+
         return False, ""
 
     def _remove_emojis(self, text: str) -> str:
