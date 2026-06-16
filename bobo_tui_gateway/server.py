@@ -774,6 +774,31 @@ def handle_input_detect_drop(params: dict, rid: str) -> dict:
     return _ok(rid, {"dropped": False})
 
 
+@method("commands.catalog")
+def handle_commands_catalog(params: dict, rid: str) -> dict:
+    """Return available slash commands to the TUI."""
+    return _ok(rid, {
+        "pairs": [
+            ["/help", "显示帮助"],
+            ["/clear", "清除当前对话"],
+            ["/undo", "回退上一步操作"],
+            ["/tools", "列出所有工具"],
+            ["/settings", "查看当前配置"],
+            ["/sessions", "查看历史会话"],
+            ["/exit", "退出"],
+        ],
+        "categories": [],
+        "canon": {},
+        "sub": {},
+    })
+
+
+@method("completion")
+def handle_completion(params: dict, rid: str) -> dict:
+    """Return autocomplete items for the current input."""
+    return _ok(rid, {"items": []})
+
+
 # ── 请求分发 ──────────────────────────────────────────────────────────
 
 def dispatch(req: dict) -> dict | None:
