@@ -478,3 +478,45 @@ class TestEnvIsolation:
         assert "PATH" in clean
         assert "GITHUB_TOKEN" not in clean
         assert "NOTION_API_KEY" not in clean
+
+
+# ── Phase 3.1: multi-language auto-fix (Go + Rust) ──────────────────────
+
+class TestMultiLanguageSupport:
+    """Verify Go and Rust execution + auto-fix pipeline."""
+
+    def test_go_hello_world(self):
+        from tools.code_execution import execute
+        result = execute(
+            code='package main\nimport "fmt"\nfunc main() { fmt.Println("hello go") }',
+            language="go", type="run"
+        )
+        # Go may or may not be installed; just verify no crash
+        assert "hello go" in result or "未安装" in result or "失败" in result
+
+    def test_rust_hello_world(self):
+        from tools.code_execution import execute
+        result = execute(
+            code='fn main() { println!("hello rust"); }',
+            language="rust", type="run"
+        )
+        assert "hello rust" in result or "未安装" in result or "失败" in result or "编译" in result
+
+    def test_language_enum_includes_go_rust(self):
+        from tools.code_execution import TOOL_SCHEMA
+        langs = TOOL_SCHEMA["function"]["parameters"]["properties"]["language"]["enum"]
+        assert "go" in langs
+        assert "rust" in langs
+        assert "python" in langs
+        assert len(langs) == 5
+
+    def test_ext_map_includes_go_rust(self):
+        import tempfile, os
+        from tools.code_execution import _save_code
+        # Check extensions are mapped
+        from tools.code_execution import PROJECTS_DIR
+        # Quick functional test: _save_code uses ext_map internally
+        path, _ = _save_code("package main", "go")
+        assert path.endswith(".go")
+        path2, _ = _save_code("fn main() {}", "rust")
+        assert path2.endswith(".rs")

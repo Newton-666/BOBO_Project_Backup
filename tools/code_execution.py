@@ -35,7 +35,8 @@ def _save_code(code: str, language: str, task_name: str = None, version: str = "
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         task_name = f"code_{timestamp}"
 
-    ext_map = {"python": ".py", "javascript": ".js", "bash": ".sh"}
+    ext_map = {"python": ".py", "javascript": ".js", "bash": ".sh",
+               "go": ".go", "rust": ".rs"}
     ext = ext_map.get(language, ".txt")
 
     task_dir = PROJECTS_DIR / task_name
@@ -312,6 +313,10 @@ def _run_code(code, language):
         return _run_javascript(code)
     elif language == "bash":
         return _run_bash(code)
+    elif language == "go":
+        return _run_go(code)
+    elif language == "rust":
+        return _run_rust(code)
     else:
         return f"不支持的语言: {language}"
 
@@ -432,6 +437,89 @@ def _run_bash(code):
                 pass
 
 
+def _run_go(code):
+    """执行 Go 代码（go run 临时文件）"""
+    temp_file = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.go', delete=False) as f:
+            f.write(code)
+            temp_file = f.name
+        result = subprocess.run(
+            ['go', 'run', temp_file],
+            capture_output=True, text=True, timeout=60,
+            env=sanitize_env()
+        )
+        output = ""
+        if result.stdout:
+            output += result.stdout
+        if result.stderr:
+            if output:
+                output += "\n[stderr]\n"
+            output += result.stderr
+        if not output:
+            output = "(执行成功，无输出)"
+        return output[:MAX_OUTPUT_CHARS]
+    except FileNotFoundError:
+        return "Go 未安装（https://go.dev/dl/）"
+    except subprocess.TimeoutExpired:
+        return "执行超时（60秒）"
+    except Exception as e:
+        return f"执行失败: {e}"
+    finally:
+        if temp_file and os.path.exists(temp_file):
+            try:
+                os.unlink(temp_file)
+            except Exception:
+                pass
+
+
+def _run_rust(code):
+    """执行 Rust 代码（rustc 编译 + 运行二进制）"""
+    temp_rs = None
+    temp_bin = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.rs', delete=False) as f:
+            f.write(code)
+            temp_rs = f.name
+        temp_bin = temp_rs.replace('.rs', '')
+        compile_result = subprocess.run(
+            ['rustc', temp_rs, '-o', temp_bin, '--edition', '2024'],
+            capture_output=True, text=True, timeout=60,
+            env=sanitize_env()
+        )
+        if compile_result.returncode != 0:
+            return f"编译失败:\n{compile_result.stderr[:MAX_OUTPUT_CHARS]}"
+        run_result = subprocess.run(
+            [temp_bin],
+            capture_output=True, text=True, timeout=30,
+            env=sanitize_env()
+        )
+        output = ""
+        if run_result.stdout:
+            output += run_result.stdout
+        if run_result.stderr:
+            if output:
+                output += "\n[stderr]\n"
+            output += run_result.stderr
+        if not output:
+            output = "(执行成功，无输出)"
+        return output[:MAX_OUTPUT_CHARS]
+    except FileNotFoundError:
+        return "Rust 未安装（https://rustup.rs/）"
+    except subprocess.TimeoutExpired:
+        return "执行超时（60秒）"
+    except Exception as e:
+        return f"执行失败: {e}"
+    finally:
+        for f in [temp_rs, temp_bin]:
+            if f and os.path.exists(f):
+                try:
+                    os.unlink(f)
+                except Exception:
+                    pass
+
+
+
 def _lint_code(code, language):
     if language == "python":
         try:
@@ -440,6 +528,9 @@ def _lint_code(code, language):
             return "语法检查通过，无错误"
         except SyntaxError as e:
             return f"语法错误: {e}"
+    elif language in ("go", "rust"):
+        syntax_err = _check_syntax(code, language)
+        return syntax_err or "语法检查通过，无错误"
     else:
         return f"暂不支持 {language} 的语法检查"
 
@@ -449,12 +540,12 @@ TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": TOOL_NAME,
-        "description": "执行代码并获取输出。支持 Python、JavaScript、Bash。可用于测试和验证代码。",
+        "description": "执行代码并获取输出。支持 Python、JavaScript、Bash、Go、Rust。失败时自动修复（需 llm_caller）。",
         "parameters": {
             "type": "object",
             "properties": {
                 "code": {"type": "string", "description": "要执行的代码"},
-                "language": {"type": "string", "enum": ["python", "javascript", "bash"], "description": "编程语言"},
+                "language": {"type": "string", "enum": ["python", "javascript", "bash", "go", "rust"], "description": "编程语言"},
                 "type": {"type": "string", "enum": ["run", "lint"], "description": "执行类型"}
             },
             "required": ["code", "language"]
