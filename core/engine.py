@@ -352,9 +352,19 @@ class Engine(ContextMixin, ToolRunnerMixin):
         messages = [{"role": "system", "content": self.system_prompt}] + self.history
 
         if self._pending_diff:
+            diff_preview = self._pending_diff[:4000]
             messages.insert(1, {
                 "role": "system",
-                "content": f"[自上次调用以来的文件变更:]\n{self._pending_diff[:2000]}"
+                "content": (
+                    f"[代码变更 — 请审查以下 diff 是否有 bug、安全风险或性能问题:]\n"
+                    f"{diff_preview}\n\n"
+                    f"审查要点:\n"
+                    f"1. 逻辑错误（拼写错误、条件反转、off-by-one）\n"
+                    f"2. 安全风险（注入、硬编码密钥、权限问题）\n"
+                    f"3. 性能问题（不必要的循环、重复计算、N+1 查询）\n"
+                    f"4. 代码风格（与项目其他部分不一致的命名/格式）\n\n"
+                    f"发现问题后如实报告，使用 review_diff 工具可查看完整 diff。"
+                )
             })
             self._pending_diff = ""
 

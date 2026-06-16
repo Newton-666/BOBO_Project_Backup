@@ -35,8 +35,9 @@ class ContextMixin:
             "search_emails", "read_email_content", "analyze_emails",
         ],
         "code": [
-            "code_execution", "file_writer", "execute_terminal",
-            "search_code", "refactor", "git_status",
+            "code_execution", "file_operation", "execute_terminal",
+            "search_code", "grep_code", "edit_file", "refactor",
+            "git_status", "run_tests", "review_diff",
             "github_create_repo", "github_create_pr",
             "github_pr_diff", "github_pr_comment",
             "github_check_auth", "github_setup", "restore_checkpoint",
