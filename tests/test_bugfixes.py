@@ -299,3 +299,88 @@ class TestEditFileContextAware:
         assert "错误" in result
         assert "文件中相似的行" in result  # hint section
         assert "hello" in result  # the similar line is shown
+
+
+# ── Phase 1-6: refactor interface redesign ──────────────────────────────
+
+class TestRefactorInterface:
+    """Verify refactor's new changes-based interface works correctly."""
+
+    def test_search_only_returns_matches(self, tmp_path):
+        test_file = tmp_path / "test_refactor.py"
+        test_file.write_text("def foo():\n    return _old_name()\n", encoding="utf-8")
+
+        from tools.refactor import execute
+        result = execute(keyword="_old_name", directory=str(tmp_path), file_pattern="*.py")
+        assert "找到" in result
+        assert "_old_name" in result
+        assert "test_refactor.py" in result
+
+    def test_dry_run_preview_all_matches(self, tmp_path):
+        test_file = tmp_path / "dryrun.py"
+        test_file.write_text("def foo():\n    return old_func()\n", encoding="utf-8")
+
+        from tools.refactor import execute
+        result = execute(
+            keyword="old_func",
+            directory=str(tmp_path),
+            file_pattern="*.py",
+            changes=[{
+                "path": str(test_file),
+                "old_string": "old_func()",
+                "new_string": "new_func()"
+            }],
+            dry_run=True
+        )
+        assert "预览替换" in result
+        assert "匹配 1 处" in result
+        assert "全部匹配" in result
+
+    def test_dry_run_detects_mismatch(self, tmp_path):
+        test_file = tmp_path / "mismatch.py"
+        test_file.write_text("def foo():\n    return actual_func()\n", encoding="utf-8")
+
+        from tools.refactor import execute
+        result = execute(
+            keyword="func",
+            directory=str(tmp_path),
+            file_pattern="*.py",
+            changes=[{
+                "path": str(test_file),
+                "old_string": "wrong_name()",
+                "new_string": "correct_name()"
+            }],
+            dry_run=True
+        )
+        assert "不匹配" in result or "未匹配" in result
+
+    def test_actual_replace_works(self, tmp_path):
+        test_file = tmp_path / "replace.py"
+        test_file.write_text("VERSION = '1.0.0'\n", encoding="utf-8")
+
+        from tools.refactor import execute
+        result = execute(
+            keyword="VERSION",
+            directory=str(tmp_path),
+            file_pattern="*.py",
+            changes=[{
+                "path": str(test_file),
+                "old_string": "VERSION = '1.0.0'",
+                "new_string": "VERSION = '2.0.0'"
+            }]
+        )
+        assert "已替换" in result
+        content = test_file.read_text(encoding="utf-8")
+        assert "2.0.0" in content
+
+    def test_changes_interface_accepted(self):
+        """Verify the new changes parameter is in the schema."""
+        from tools.refactor import TOOL_SCHEMA
+        props = TOOL_SCHEMA["function"]["parameters"]["properties"]
+        assert "changes" in props
+        assert "dry_run" in props
+        # changes items must have the right required fields
+        item_props = props["changes"]["items"]["properties"]
+        assert "path" in item_props
+        assert "old_string" in item_props
+        assert "new_string" in item_props

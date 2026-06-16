@@ -82,56 +82,99 @@ def _write_file(filepath: str, content: str) -> str:
 
 def execute(keyword: str, directory: str = None, file_pattern: str = "*.py",
             max_results: int = 20, new_content: str = None,
-            files: list = None) -> str:
+            files: list = None,
+            changes: list = None,
+            dry_run: bool = False) -> str:
     """
-    批量重构工具：搜索关键词 → 显示匹配 → 批量写入。
+    批量重构工具：搜索关键词 → 显示匹配 → 精确替换（old_string→new_string）。
 
     两种使用方式：
-    1. 只搜索（不传 new_content 和 files）：
+    1. 只搜索：
        refactor("_confirm") → 搜索并显示所有匹配位置
-    2. 搜索并修改（传 files）：
-       refactor("_confirm", files=[{"path": "a.py", "content": "..."}, ...])
+    2. 搜索并精确替换（传 changes）：
+       refactor("_confirm", changes=[
+           {"path": "core/engine.py", "old_string": "旧代码", "new_string": "新代码"},
+           ...
+       ])
+       dry_run=True 可预览所有替换而不实际写入。
 
     Args:
-        keyword: 要搜索的关键词
+        keyword: 要搜索的关键词（支持正则表达式）
         directory: 搜索目录，默认为项目根目录
         file_pattern: 文件匹配模式，默认 *.py
         max_results: 最大返回结果数，默认 20
-        new_content: （已废弃，请用 files 参数）
-        files: 要写入的文件列表 [{"path": "...", "content": "..."}]
+        files: （已废弃，请用 changes 参数）
+        changes: 要执行的替换列表 [{"path": "...", "old_string": "...", "new_string": "..."}]
+        dry_run: 为 True 时只检查 old_string 是否都能匹配，不实际写入
     """
     search_dir = directory or PROJECT_ROOT
 
     if not os.path.exists(search_dir):
         return f"错误: 目录不存在: {search_dir}"
 
-    # 第一步：搜索
+    # ── 第一步：搜索 ──
     results = _search_files(keyword, search_dir, file_pattern, max_results)
 
     if not results:
         return f"未找到匹配 '{keyword}' 的内容"
 
-    # 如果有 files 参数，执行批量写入
-    if files:
-        write_results = []
-        for f in files:
-            f_path = f.get("path", "")
-            f_content = f.get("content", "")
-            result = _write_file(f_path, f_content)
-            write_results.append(f"  {result}")
+    # ── 第二步：如果有 changes，执行精确替换 ──
+    if changes:
+        from tools.edit_file import execute as edit_one
 
-        success_count = sum(1 for r in write_results if "已写入" in r)
-        fail_count = len(write_results) - success_count
+        # dry_run 模式：逐个检查 old_string 是否匹配，不写入
+        if dry_run:
+            preview = [f"🔍 预览替换 '{keyword}' — {len(changes)} 处变更:\n"]
+            all_ok = True
+            for i, ch in enumerate(changes):
+                path = ch.get("path", "")
+                old = ch.get("old_string", "")
+                new = ch.get("new_string", "")
+                full_path = os.path.join(search_dir, path) if not os.path.isabs(path) else path
+                if not os.path.exists(full_path):
+                    preview.append(f"  ❌ #{i+1} 文件不存在: {path}")
+                    all_ok = False
+                    continue
+                content = _read_file_content(full_path)
+                count = content.count(old) if content else 0
+                if count == 1:
+                    preview.append(f"  ✅ #{i+1} {path}: 匹配 1 处")
+                elif count == 0:
+                    preview.append(f"  ❌ #{i+1} {path}: old_string 未匹配")
+                    # 尝试找相似行
+                    from tools.edit_file import _find_similar_lines
+                    hints = _find_similar_lines(content or "", old)
+                    if hints:
+                        preview.append(f"      相似行: L{hints[0][0]}: {hints[0][1][:80]}")
+                    all_ok = False
+                else:
+                    preview.append(f"  ⚠️ #{i+1} {path}: old_string 匹配 {count} 次（需更精确的上下文）")
+                    all_ok = False
+            preview.append(f"\n{'✅ 全部匹配，可以执行' if all_ok else '❌ 存在不匹配，请修正后再试'}")
+            return "\n".join(preview)
+
+        # 实际执行模式
+        edit_results = []
+        for ch in changes:
+            path = ch.get("path", "")
+            old = ch.get("old_string", "")
+            new = ch.get("new_string", "")
+            full_path = os.path.join(search_dir, path) if not os.path.isabs(path) else path
+            result = edit_one(full_path, old, new)
+            edit_results.append(f"  {result}")
+
+        success_count = sum(1 for r in edit_results if "已替换" in r)
+        fail_count = len(edit_results) - success_count
 
         output = []
-        output.append(f"搜索 '{keyword}' 找到 {len(results)} 处匹配，已修改 {success_count} 个文件")
+        output.append(f"搜索 '{keyword}' 找到 {len(results)} 处匹配，替换 {success_count}/{len(changes)} 处")
         if fail_count:
-            output.append(f"失败: {fail_count} 个")
+            output.append(f"失败: {fail_count} 处（用 dry_run=True 预览后再试）")
         output.append("")
-        output.extend(write_results)
+        output.extend(edit_results)
         return "\n".join(output)
 
-    # 没有 files 参数，只返回搜索结果
+    # ── 只搜索，不修改 ──
     output = []
     output.append(f"搜索 '{keyword}' 找到 {len(results)} 处匹配:")
     output.append("")
@@ -141,7 +184,6 @@ def execute(keyword: str, directory: str = None, file_pattern: str = "*.py",
         if filepath != current_file:
             rel_path = os.path.relpath(filepath, search_dir)
             output.append(f"  📄 {rel_path}")
-            # 同时显示文件内容摘要
             content = _read_file_content(filepath)
             if content:
                 lines = content.split('\n')
@@ -150,8 +192,9 @@ def execute(keyword: str, directory: str = None, file_pattern: str = "*.py",
         output.append(f"    L{line_no}: {line[:120]}")
 
     output.append("")
-    output.append("提示: 确认修改后，使用 files 参数执行批量写入")
-    output.append('示例: refactor("_confirm", files=[{"path": "core/engine.py", "content": "..."}])')
+    output.append("提示: 确认后使用 changes 参数批量精确替换")
+    output.append('示例: refactor("keyword", changes=[{"path": "a.py", "old_string": "旧", "new_string": "新"}])')
+    output.append("用 dry_run=True 可预览所有替换而不实际写入")
 
     return "\n".join(output)
 
@@ -161,24 +204,36 @@ TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": TOOL_NAME,
-        "description": "批量重构工具：搜索关键词并显示匹配位置，然后批量写入修改后的文件。先搜索查看结果，再传入 files 执行写入。",
+        "description": (
+            "批量重构工具：先搜索关键词定位，再用 old_string→new_string 精确替换。"
+            "推荐流程：1) 只传 keyword 搜索查看匹配 → "
+            "2) 传 changes=[{path, old_string, new_string}] 执行替换 → "
+            "3) 用 dry_run=True 可先预览。"
+            "与 edit_file 不同：refactor 支持跨多文件批量替换，每个文件内 old_string 需唯一。"
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "keyword": {"type": "string", "description": "要搜索的关键词，支持正则表达式"},
                 "directory": {"type": "string", "description": "搜索目录，默认为项目根目录"},
-                "file_pattern": {"type": "string", "description": "文件匹配模式，默认 *.py"},
+                "file_pattern": {"type": "string", "description": "文件匹配模式（如 *.py, *.js），默认 *.py"},
                 "max_results": {"type": "integer", "description": "最大返回结果数，默认 20"},
-                "files": {
+                "changes": {
                     "type": "array",
-                    "description": "要写入的文件列表，每个元素包含 path 和 content",
+                    "description": "要执行的精确替换列表。与 edit_file 规则相同：old_string 在每个文件中必须恰好出现一次。",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "path": {"type": "string"},
-                            "content": {"type": "string"}
-                        }
+                            "path": {"type": "string", "description": "文件路径"},
+                            "old_string": {"type": "string", "description": "要被替换的文本（必须与文件内容完全一致）"},
+                            "new_string": {"type": "string", "description": "替换后的文本"}
+                        },
+                        "required": ["path", "old_string", "new_string"]
                     }
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "为 true 时只预览替换，检查 old_string 是否都能匹配，不实际写入文件。默认 false。"
                 }
             },
             "required": ["keyword"]
