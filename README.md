@@ -17,56 +17,102 @@
 
 ## Quick Start
 
-### Requirements
-
-- **Python 3.10+**
-- **Node.js v18+** (runs the TUI)
+### Step 1: Check prerequisites
 
 ```bash
-node --version   # should show v18+
-# Install: https://nodejs.org or brew install node
+node --version    # need v18+. Install: brew install node (or https://nodejs.org)
+python3 --version # need 3.10+. Install: brew install python@3.11
 ```
 
-### 1. Install
+### Step 2: Install
 
 ```bash
-pip install bobo-agent
+pip3 install --upgrade bobo-agent
 ```
 
-### 2. Run
+If pip fails with SSL errors, install from GitHub directly:
+
+```bash
+pip3 install --upgrade git+https://github.com/Newton-666/boboagent.git
+```
+
+### Step 3: Get an API key
+
+Get a free key at **https://platform.deepseek.com/api-keys** (recommended).
+
+Or use OpenAI, Anthropic, Google, OpenRouter, or Ollama — see [Configuration](#configuration).
+
+### Step 4: Configure (one command)
+
+```bash
+mkdir -p ~/.bobo && cat > ~/.bobo/.env << 'EOF'
+DEEPSEEK_API_KEY=sk-your-key-here
+BOBO_PROVIDER=deepseek
+API_MODEL_NAME=deepseek-chat
+BOBO_READ_TIMEOUT=120
+BOBO_MAX_RETRIES=4
+EOF
+```
+
+Replace `sk-your-key-here` with your actual DeepSeek API key.
+
+### Step 5: Run
 
 ```bash
 bobo
 ```
 
-On first run, Bobo shows a setup screen. Paste your API key and you're ready.
-
-> **Make sure Node.js is installed** — the TUI needs it:
-> ```bash
-> node --version   # should show v18+
-> ```
-> Get a DeepSeek key: https://platform.deepseek.com/api-keys
-
-### Optional: Connect services
+If `bobo: command not found`:
 
 ```bash
-# Obsidian vault
-echo "OBSIDIAN_VAULT=/path/to/vault" >> ~/.bobo/.env
+python3 -m bobo_tui_gateway.entry
+```
 
-# Notion — just say "connect Notion" in chat
-# GitHub — just say "connect GitHub" in chat
+Or add to PATH permanently:
 
-# Email
+```bash
+echo 'alias bobo="python3 -m bobo_tui_gateway.entry"' >> ~/.zshrc && source ~/.zshrc
+```
+
+### Verify everything works
+
+```bash
+python3 -c "from config import API_KEY; print('API key:', 'OK' if API_KEY else 'MISSING')"
+```
+
+### Optional: Obsidian
+
+```bash
+echo "OBSIDIAN_VAULT=/path/to/your/vault" >> ~/.bobo/.env
+```
+
+### Optional: GitHub
+
+```bash
+# Create a token at https://github.com/settings/tokens (needs repo + workflow scope)
+echo "GITHUB_TOKEN=ghp_your_token_here" >> ~/.bobo/.env
+# Then in Bobo chat: "connect GitHub"
+```
+
+### Optional: Notion
+
+```
+In Bobo chat: "connect Notion" — Bobo will ask for your Notion API key.
+```
+
+### Optional: Email (IMAP)
+
+```bash
 cat > ~/.bobo/mail.json << 'EOF'
 {"server": "imap.gmail.com", "port": 993,
- "username": "you@gmail.com", "password": "app-password"}
+ "username": "you@gmail.com", "password": "your-app-password"}
 EOF
 ```
 
 ### Uninstall
 
 ```bash
-pip uninstall bobo-agent
+pip3 uninstall bobo-agent
 rm -rf ~/.bobo ~/.bobo_v2
 ```
 
