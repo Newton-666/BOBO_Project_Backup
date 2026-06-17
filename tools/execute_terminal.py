@@ -16,7 +16,7 @@ DANGEROUS_PATTERNS = [
     r'chmod\s+777\s+',                   # chmod 777
     r'chown\s+',                         # chown
     r'dd\s+of=',                         # dd 写入
-    r'>\s*/dev/',                        # 写入设备
+    r'>\s*/dev/(sd[a-z]+|disk\d+|nvme\d+n\d+|mmcblk\d+)',  # 写入磁盘设备（排除 /dev/null /dev/urandom 等）
     r':\s*\(\s*\)\s*:\s*',               # fork bomb
     r'\|\s*sh\s*',                       # pipe to sh
     r'\|\s*bash\s*',                     # pipe to bash

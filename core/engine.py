@@ -524,7 +524,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         (r'rm\s+(-[rRf]|--recursive|--force)', "递归删除文件"),
         (r'sudo\s+', "提权操作"),
         (r'(chmod|chown)\s+.*777', "开放全部权限"),
-        (r'>\s*/dev/[sh]d[a-z]', "直接写入磁盘设备"),
+        (r'>\s*/dev/(sd[a-z]+|disk\d+|nvme\d+n\d+|mmcblk\d+)', "直接写入磁盘设备"),
         (r'\bdd\s+if=', "磁盘镜像操作"),
         (r'mkfs\.', "格式化文件系统"),
         (r':\(\)\s*\{', "fork 炸弹"),
