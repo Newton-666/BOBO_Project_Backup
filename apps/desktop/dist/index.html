@@ -32,7 +32,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 .msg.user { background:var(--bg2); border:1px solid var(--border); margin-left:auto; }
 .msg .who { font-size:12px; font-weight:600; color:var(--text2); margin-bottom:4px; }
 .msg .txt { white-space:pre-wrap; word-break:break-word; }
-.msg .txt strong, .msg .txt b { color:#5b9bd5; }
+.msg .txt strong, .msg .txt b { color:#e8913a; }
 .tool { font-size:13px; color:var(--text2); padding:6px 12px; margin:4px 0; cursor:pointer; border-radius:6px; display:flex; align-items:center; gap:8px; border:1px solid transparent; }
 .tool:hover { background:rgba(0,0,0,0.02); border-color:var(--border); }
 .tool .dot { color:var(--text-muted); font-size:10px; flex-shrink:0; animation:dotPulse 3s infinite; }
@@ -79,7 +79,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 .msg .txt tr:nth-child(even) { background:rgba(255,255,255,0.03); }
 #input-box { padding:12px 16px 24px; position:relative; }
 #input { width:100%; padding:14px 48px 14px 18px; background:var(--bg3); border:1px solid var(--border); border-radius:12px; color:var(--text); font:inherit; resize:none; outline:none; }
-#input:focus { border-color:#555; }
+#input:focus { border-color:#e8913a; box-shadow:0 0 0 2px rgba(232,145,58,0.12); }
 #input::placeholder { color:var(--text2); }
 #send { position:absolute; right:24px; bottom:32px; width:32px; height:32px; border-radius:8px; background:var(--text); color:var(--bg); border:none; cursor:pointer; font-size:16px; font-weight:600; }
 #send:disabled { opacity:0.3; }
@@ -161,7 +161,7 @@ var sessions = [];
 function debug(msg) { debugEl.textContent = '[' + msg + ']'; }
 function setConnected(c) {
   connected = c; inputEl.disabled = !c; sendEl.disabled = !c;
-  inputEl.placeholder = c ? '给 Bobo 发送消息...' : 'Connecting...';
+  inputEl.placeholder = c ? '输入消息 (⌘↵ 发送，↵ 换行)' : 'Connecting...';
   statusDot.className = 'dot ' + (c ? 'green' : 'red');
   statusText.textContent = c ? 'Connected' : 'Offline';
 }
@@ -558,7 +558,7 @@ sendEl.addEventListener('click', function() {
   sendPrompt(text);
 });
 inputEl.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendEl.click(); }
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendEl.click(); }
 });
 
 // ── Settings ────────────────────────────────────────────────────────────
