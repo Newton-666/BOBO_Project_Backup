@@ -285,7 +285,7 @@ def handle_session_title(params: dict, rid: str) -> dict:
 @method("session.list")
 def handle_session_list(params: dict, rid: str) -> dict:
     mgr = _get_session_mgr()
-    sessions = mgr.list_sessions(limit=20)
+    sessions = mgr.list_sessions(limit=100)
     items = []
     for s in sessions:
         # 解析 created_at 为 Unix 时间戳
