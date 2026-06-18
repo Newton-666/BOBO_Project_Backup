@@ -25,16 +25,19 @@ function App() {
   const [streaming, setStreaming] = useState(false)
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [debugInfo, setDebugInfo] = useState('Starting...')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   useEffect(() => {
+    setDebugInfo('Connecting...')
     if (isBrowserDev) gw.connect(9876)
     else gw.connect()
 
     gw.on('gateway.ready', async () => {
+      setDebugInfo('Connected ✓')
       setConnected(true)
       const result = await gw.call('session.create', { title: 'New Chat' })
       if (result && typeof result === 'object' && 'session_id' in result) {
@@ -56,7 +59,7 @@ function App() {
       })
     })
 
-    gw.on('message.start', () => setStreaming(true))
+    gw.on('message.start', () => { setStreaming(true); setDebugInfo('Receiving...') })
 
     gw.on('message.complete', (data) => {
       setStreaming(false)
@@ -147,6 +150,7 @@ function App() {
           <div className="welcome">
             <h1>Bobo</h1>
             <p className="welcome-sub">你的个人 AI 助手</p>
+            <p className="debug-line">[{debugInfo}]</p>
           </div>
         ) : (
           <div className="chat">

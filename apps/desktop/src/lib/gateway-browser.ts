@@ -19,11 +19,15 @@ class BrowserGateway {
       this.ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data)
-          // Events: {method: "event", params: {type: "gateway.ready", payload: ...}}
-          const eventType = msg.params?.type || msg.method
-          const handler = this.handlers.get(eventType)
-          if (handler) {
-            handler(msg.params?.payload || msg.params || {})
+          // Events: {method: "event", params: {type, payload}}
+          // Responses: {id, result, error}
+          const isEvent = msg.method === 'event'
+          if (isEvent) {
+            const eventType = msg.params?.type
+            const handler = this.handlers.get(eventType)
+            if (handler) {
+              handler(msg.params?.payload || msg.params || {})
+            }
             return
           }
           if (msg.id) {
@@ -33,7 +37,9 @@ class BrowserGateway {
               resolve(msg.result || msg.error || {})
             }
           }
-        } catch {}
+        } catch (e) {
+          console.error('[browser-gateway] Message parse error:', e, event.data?.slice(0, 200))
+        }
       }
       this.ws.onerror = () => {
         console.warn('[browser-gateway] WebSocket connection failed. Start backend with: python3 -m bobo_tui_gateway.ws_server')
