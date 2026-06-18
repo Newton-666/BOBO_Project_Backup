@@ -129,28 +129,28 @@ function setConnected(c) {
 }
 function esc(s) { return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function md(s) {
-  s = esc(s);
-  // Code blocks
+  // Code blocks (before escaping — keep raw code content)
+  var codeBlocks = [];
   s = s.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
-    return '<pre><code>' + code.trim() + '</code></pre>';
+    codeBlocks.push('<pre><code>' + esc(code.trim()) + '</code></pre>');
+    return '%%CODEBLOCK' + (codeBlocks.length-1) + '%%';
   });
-  // Tables: detect |---|---| pattern, convert surrounding lines
-  s = s.replace(/((?:^\|.+$\n?)+)/gm, function(block) {
+  // Tables (before escaping)
+  var tables = [];
+  s = s.replace(/((?:^\|.+\n?)+)/gm, function(block) {
     var lines = block.trim().split('\n');
     if (lines.length < 2) return block;
-    // Check if second line is a separator like |---|---|
-    if (!/^\|[\s\-:]+\|$/.test(lines[1])) return block;
-    var html = '<table>';
-    // Header
-    html += '<thead><tr>' + lines[0].split('|').filter(function(c){return c.trim();}).map(function(c){return '<th>'+c.trim()+'</th>';}).join('') + '</tr></thead>';
-    // Body
-    html += '<tbody>';
-    for (var i = 2; i < lines.length; i++) {
-      html += '<tr>' + lines[i].split('|').filter(function(c){return c.trim();}).map(function(c){return '<td>'+c.trim()+'</td>';}).join('') + '</tr>';
+    if (!/^\|[\s\-:|\s]+\|$/.test(lines[1])) return block;
+    var h = '<table><thead><tr>' + lines[0].split('|').filter(function(c){return c.trim();}).map(function(c){return '<th>'+esc(c.trim())+'</th>';}).join('') + '</tr></thead><tbody>';
+    for (var i=2; i<lines.length; i++) {
+      h += '<tr>' + lines[i].split('|').filter(function(c){return c.trim();}).map(function(c){return '<td>'+esc(c.trim())+'</td>';}).join('') + '</tr>';
     }
-    html += '</tbody></table>';
-    return html;
+    h += '</tbody></table>';
+    tables.push(h);
+    return '%%TABLE' + (tables.length-1) + '%%';
   });
+  // Now escape remaining text
+  s = esc(s);
   // Inline code
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
   // Bold
@@ -158,11 +158,14 @@ function md(s) {
   // Diff lines
   var lines = s.split('\n');
   for (var i = 0; i < lines.length; i++) {
-    if (/^\+/.test(lines[i]) && !lines[i].match(/^\+[\-\s]/)) lines[i] = '<span class="diff-add">' + lines[i] + '</span>';
-    else if (/^\-/.test(lines[i]) && !lines[i].match(/^\-[\-\s]/)) lines[i] = '<span class="diff-del">' + lines[i] + '</span>';
+    if (/^\+/.test(lines[i]) && !/^\+[-\s]/.test(lines[i])) lines[i] = '<span class="diff-add">' + lines[i] + '</span>';
+    else if (/^\-/.test(lines[i]) && !/^\-[-\s]/.test(lines[i])) lines[i] = '<span class="diff-del">' + lines[i] + '</span>';
     else if (/^@@/.test(lines[i])) lines[i] = '<span class="diff-file">' + lines[i] + '</span>';
   }
   s = lines.join('\n');
+  // Restore code blocks and tables
+  s = s.replace(/%%CODEBLOCK(\d+)%%/g, function(_, i) { return codeBlocks[+i]; });
+  s = s.replace(/%%TABLE(\d+)%%/g, function(_, i) { return tables[+i]; });
   return s;
 }
 
