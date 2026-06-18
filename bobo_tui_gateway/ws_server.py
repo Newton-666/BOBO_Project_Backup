@@ -108,22 +108,31 @@ async def handle_client(reader, writer):
         writer.close()
         return
 
-    # Import the server dispatch logic (same RPC methods as TUI)
-    from bobo_tui_gateway.server import dispatch
+    # Monkey-patch transport.write_json to route events to WebSocket
+    # instead of stdout. The engine emits events via _emit() → write_json()
+    # in a background thread; this patch catches them and sends via WS.
+    import bobo_tui_gateway.transport as transport
+    _original_write = transport.write_json
+    def _ws_write(msg):
+        # Called from engine background thread — schedule send on event loop
+        data = json.dumps(msg, ensure_ascii=False)
+        asyncio.get_event_loop().call_soon_threadsafe(
+            lambda d=data: asyncio.ensure_future(ws.send_text(d))
+        )
+        return True  # pretend success so engine doesn't exit
+    transport.write_json = _ws_write
 
-    # Send gateway.ready event (same as TUI backend)
+    from bobo_tui_gateway.server import dispatch
     from bobo_tui_gateway.entry import resolve_skin
+
+    # Send gateway.ready
     await ws.send_text(json.dumps({
-        "jsonrpc": "2.0",
-        "method": "event",
-        "params": {
-            "type": "gateway.ready",
-            "payload": {"skin": resolve_skin()}
-        }
+        "jsonrpc": "2.0", "method": "event",
+        "params": {"type": "gateway.ready", "payload": {"skin": resolve_skin()}}
     }, ensure_ascii=False))
 
-    while not ws.closed:
-        try:
+    try:
+        while not ws.closed:
             text = await ws.recv_text()
             if text is None:
                 break
@@ -131,10 +140,9 @@ async def handle_client(reader, writer):
             resp = dispatch(req)
             if resp is not None:
                 await ws.send_text(json.dumps(resp, ensure_ascii=False))
-        except Exception:
-            break
-
-    await ws.close()
+    finally:
+        transport.write_json = _original_write
+        await ws.close()
 
 
 async def main(port=9876):
