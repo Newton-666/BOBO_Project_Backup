@@ -35,7 +35,7 @@ function App() {
       gw.connect()
     }
 
-    gw.on('gw.ready', async () => {
+    gw.on('gateway.ready', async () => {
       setConnected(true)
       // Create a new session
       const result = await gw.call('session.create', { title: 'New Chat' })
