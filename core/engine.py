@@ -687,9 +687,14 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 self._save_checkpoint(f"调用: {', '.join(tool_names[:3])}")
                 self.state = self.STATE_EXECUTING
             else:
+                # flash model sometimes returns empty — retry once
+                if not content and not self._pending_tool_calls and self.current_depth < 2:
+                    self._pending_content = None
+                    self._pending_tool_calls = None
+                    self.current_depth += 1
+                    self.state = self.STATE_THINKING  # retry
                 # 检查是否需要验证：LLM 声称完成但没有使用任何工具
-                # _verification_attempted 防止验证提示触发后再次匹配，导致死循环
-                if content and self._needs_verification(content) and not self._verification_attempted:
+                elif content and self._needs_verification(content) and not self._verification_attempted:
                     self._verification_attempted = True
                     self._append_to_history("assistant", content)
                     self._append_verification_note()
