@@ -45,7 +45,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 .code-block-wrapper { margin:8px 0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
 .code-header { display:flex; align-items:center; justify-content:space-between; background:var(--bg2); padding:6px 12px; border-bottom:1px solid var(--border); }
 .code-lang { font-size:11px; color:var(--text2); text-transform:uppercase; }
-.copy-btn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--text2); cursor:pointer; font-size:11px; padding:2px 8px; }
+.copy-btn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--text2); cursor:pointer; font-size:11px; padding:2px 8px; font-family:inherit; }
 .copy-btn:hover { background:var(--bg3); }
 .copy-btn.copied { color:#50a14f; border-color:#50a14f; }
 .msg .txt pre { background:#f4f4f0; border:none; padding:12px 16px; margin:0; overflow-x:auto; font-family:'SF Mono',Monaco,Menlo,monospace; font-size:13px; line-height:1.5; color:#333; }
@@ -148,12 +148,16 @@ function setConnected(c) {
   statusDot.className = 'dot ' + (c ? 'green' : 'red');
   statusText.textContent = c ? 'Connected' : 'Offline';
 }
+var _codeStore = {};
+var _codeId = 0;
 function esc(s) { return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function copyCode(btn, code) {
+function copyCode(id) {
+  var code = _codeStore[id];
+  if (!code) return;
   navigator.clipboard.writeText(code).then(function() {
-    btn.textContent = '✓ Copied';
-    btn.classList.add('copied');
-    setTimeout(function() { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+    var btn = document.getElementById('copy-' + id);
+    if (btn) { btn.textContent = '✓ 已复制'; btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000); }
   });
 }
 function highlight(code, lang) {
@@ -177,12 +181,13 @@ function md(s) {
   var codeBlocks = [];
   s = s.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
     var rawCode = code.trim();
-    var langLabel = lang || '';
+    var cid = 'c' + (++_codeId);
+    _codeStore[cid] = rawCode;
     codeBlocks.push(
       '<div class="code-block-wrapper">' +
       '<div class="code-header">' +
-      '<span class="code-lang">' + esc(langLabel) + '</span>' +
-      '<button class="copy-btn" onclick="copyCode(this,' + JSON.stringify(rawCode) + ')">📋 Copy</button>' +
+      '<span class="code-lang">' + esc(lang || '') + '</span>' +
+      '<button id="copy-' + cid + '" class="copy-btn" onclick="copyCode(\'' + cid + '\')">复制</button>' +
       '</div>' +
       '<pre><code>' + highlight(rawCode, lang) + '</code></pre>' +
       '</div>'
@@ -429,34 +434,24 @@ inputEl.addEventListener('keydown', function(e) {
 });
 
 // ── Settings ────────────────────────────────────────────────────────────
-(function() {
-  var modal = document.getElementById('settings-modal');
-  var gear = document.getElementById('settings-icon');
-  var close = document.getElementById('settings-close');
-  var save = document.getElementById('settings-save');
-
-  gear.onclick = async function() {
-    var r1 = await call('setup.status', {});
-    var r2 = await call('config.full', {});
-    document.getElementById('cfg-provider').value = (r1.provider) || 'deepseek';
-    document.getElementById('cfg-apikey').placeholder = r1.provider_configured ? '已配置，输入新key覆盖' : '输入API Key';
-    document.getElementById('cfg-apikey').value = '';
-    modal.classList.add('open');
-  };
-
-  close.onclick = function() { modal.classList.remove('open'); };
-  modal.onclick = function(e) { if (e.target === modal) modal.classList.remove('open'); };
-
-  save.onclick = async function() {
-    var provider = document.getElementById('cfg-provider').value;
-    var apiKey = document.getElementById('cfg-apikey').value.trim();
-    if (apiKey && apiKey !== '(已配置)') {
-      await call('setup.submit', { provider: provider, api_key: apiKey });
-      addStatus('API Key 已保存');
-    }
-    modal.classList.remove('open');
-  };
-})();
+document.getElementById('settings-icon').onclick = function() {
+  call('setup.status', {}).then(function(r1) {
+    document.getElementById('cfg-provider').value = (r1 && r1.provider) || 'deepseek';
+    document.getElementById('cfg-apikey').placeholder = (r1 && r1.provider_configured) ? '已配置' : '输入API Key';
+  });
+  document.getElementById('settings-modal').classList.add('open');
+};
+document.getElementById('settings-close').onclick = function() {
+  document.getElementById('settings-modal').classList.remove('open');
+};
+document.getElementById('settings-save').onclick = function() {
+  var key = document.getElementById('cfg-apikey').value.trim();
+  if (key) {
+    call('setup.submit', { provider: document.getElementById('cfg-provider').value, api_key: key });
+    addStatus('Saved');
+  }
+  document.getElementById('settings-modal').classList.remove('open');
+};
 </script>
 <div id="settings-modal">
   <div id="settings-panel">
