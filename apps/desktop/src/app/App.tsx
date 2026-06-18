@@ -13,6 +13,8 @@ interface Message {
   toolResult?: string
   toolDuration?: number
   toolError?: string
+  toolArgs?: string
+  toolCode?: string
 }
 
 interface ChatSession {
@@ -131,13 +133,18 @@ function App() {
     gw.on('tool.start', (data) => {
       const d = data as Record<string, unknown>
       const name = (d.name || d.tool_id) as string
+      const contextText = (d.context as string) || name
       const args = d.arguments as Record<string, unknown> | undefined
-      const argsText = args ? JSON.stringify(args).slice(0, 200) : ''
+      const codePreview = args && typeof args.code === 'string'
+        ? `\`\`\`\n${(args.code as string).slice(0, 200)}\n\`\`\``
+        : ''
       setMessages((prev) => [...prev, {
-        id: `tool-${Date.now()}`,
-        role: 'tool',
-        text: argsText,
+        id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: 'tool' as const,
+        text: contextText,
         toolName: name,
+        toolArgs: args ? JSON.stringify(args).slice(0, 100) : '',
+        toolCode: codePreview,
       }])
       setDebugInfo(`Tool: ${name}`)
     })
@@ -156,7 +163,7 @@ function App() {
             const updated = [...prev]
             updated[i] = {
               ...updated[i],
-              toolResult: resultText.slice(0, 300),
+              toolResult: resultText.slice(0, 2000),
               toolDuration: duration,
               toolError: error,
             }
@@ -319,11 +326,19 @@ function App() {
             {messages.map((msg) => (
               <div key={msg.id} className={`msg-row ${msg.role === 'user' ? 'user-row' : ''}`}>
                 {msg.role === 'tool' && (
-                  <div className="tool-badge">
-                    🔧 {msg.toolName || 'Tool'}
-                    {msg.toolDuration !== undefined && ` (${msg.toolDuration.toFixed(1)}s)`}
-                    {msg.toolError && <span className="tool-error"> ⚠ {msg.toolError}</span>}
-                    {msg.toolResult && <div className="tool-result">{msg.toolResult}</div>}
+                  <div className="tool-entry">
+                    <div className="tool-badge">
+                      🔧 {msg.toolName || 'Tool'}
+                      {msg.toolDuration !== undefined && ` (${msg.toolDuration.toFixed(1)}s)`}
+                      {msg.toolError && <span className="tool-error"> ⚠ {msg.toolError}</span>}
+                    </div>
+                    <div className="tool-detail">{msg.text}</div>
+                    {(msg as any).toolCode && (
+                      <pre className="code-preview"><code>{(msg as any).toolCode}</code></pre>
+                    )}
+                    {(msg as any).toolResult && (
+                      <pre className="tool-output"><code>{(msg as any).toolResult}</code></pre>
+                    )}
                   </div>
                 )}
                 {msg.role === 'system' && (
