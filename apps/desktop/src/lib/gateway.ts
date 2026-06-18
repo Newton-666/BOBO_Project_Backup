@@ -31,12 +31,11 @@ class GatewayClient {
       return
     }
     this.unsubMessage = window.boboAPI.onMessage((msg) => {
-      // msg is a JSON-RPC response or event from the Python backend
-      if (msg && typeof msg === 'object' && 'method' in msg) {
-        // Event (notification)
-        const event = msg as { method: string; params: Record<string, unknown> }
-        const handler = this.handlers.get(event.method)
-        if (handler) handler(event.params || {})
+      if (!msg || typeof msg !== 'object') return
+      // Events: {method: "event", params: {type: "gateway.ready", payload: ...}}
+      if (msg.method === 'event' && msg.params?.type) {
+        const handler = this.handlers.get(msg.params.type as string)
+        if (handler) handler(msg.params.payload || msg.params)
       }
     })
 
