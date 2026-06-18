@@ -135,12 +135,14 @@ function md(s) {
     codeBlocks.push('<pre><code>' + esc(code.trim()) + '</code></pre>');
     return '%%CODEBLOCK' + (codeBlocks.length-1) + '%%';
   });
-  // Tables (before escaping)
+  // Tables (before escaping) — handle both \n and \r\n
   var tables = [];
-  s = s.replace(/((?:^\|.+\n?)+)/gm, function(block) {
-    var lines = block.trim().split('\n');
+  s = s.replace(/((?:\|.+(?:\r?\n|$))+)/gm, function(block) {
+    var lines = block.trim().split(/\r?\n/);
     if (lines.length < 2) return block;
-    if (!/^\|[\s\-:|\s]+\|$/.test(lines[1])) return block;
+    // Separator line: |---|:---:| etc
+    var sepLine = lines[1].replace(/\s/g, '');
+    if (!/^\|[-:]+\|$/.test(sepLine)) return block;
     var h = '<table><thead><tr>' + lines[0].split('|').filter(function(c){return c.trim();}).map(function(c){return '<th>'+esc(c.trim())+'</th>';}).join('') + '</tr></thead><tbody>';
     for (var i=2; i<lines.length; i++) {
       h += '<tr>' + lines[i].split('|').filter(function(c){return c.trim();}).map(function(c){return '<td>'+esc(c.trim())+'</td>';}).join('') + '</tr>';
