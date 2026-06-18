@@ -111,6 +111,17 @@ async def handle_client(reader, writer):
     # Import the server dispatch logic (same RPC methods as TUI)
     from bobo_tui_gateway.server import dispatch
 
+    # Send gateway.ready event (same as TUI backend)
+    from bobo_tui_gateway.entry import resolve_skin
+    await ws.send_text(json.dumps({
+        "jsonrpc": "2.0",
+        "method": "event",
+        "params": {
+            "type": "gateway.ready",
+            "payload": {"skin": resolve_skin()}
+        }
+    }, ensure_ascii=False))
+
     while not ws.closed:
         try:
             text = await ws.recv_text()
