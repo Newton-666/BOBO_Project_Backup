@@ -108,18 +108,19 @@ async def handle_client(reader, writer):
         writer.close()
         return
 
-    # Monkey-patch transport.write_json to route events to WebSocket
-    # instead of stdout. The engine emits events via _emit() → write_json()
-    # in a background thread; this patch catches them and sends via WS.
+    # Monkey-patch transport.write_json to route events to WebSocket.
+    # Engine emits events via _emit() → write_json() in a background thread.
+    # Capture the event loop NOW (main thread) — asyncio.get_event_loop()
+    # fails in background threads on Python 3.10+.
     import bobo_tui_gateway.transport as transport
     _original_write = transport.write_json
+    _loop = asyncio.get_event_loop()
     def _ws_write(msg):
-        # Called from engine background thread — schedule send on event loop
         data = json.dumps(msg, ensure_ascii=False)
-        asyncio.get_event_loop().call_soon_threadsafe(
+        _loop.call_soon_threadsafe(
             lambda d=data: asyncio.ensure_future(ws.send_text(d))
         )
-        return True  # pretend success so engine doesn't exit
+        return True
     transport.write_json = _ws_write
 
     from bobo_tui_gateway.server import dispatch
