@@ -20,7 +20,16 @@ class GatewayClient {
   private unsubMessage: (() => void) | null = null
   private unsubStatus: (() => void) | null = null
 
+  private browserMode = false
+
+  get isBrowserMode() { return this.browserMode }
+
   connect() {
+    if (!window.boboAPI) {
+      this.browserMode = true
+      console.log('[gateway] Browser mode — no backend connection')
+      return
+    }
     this.unsubMessage = window.boboAPI.onMessage((msg) => {
       // msg is a JSON-RPC response or event from the Python backend
       if (msg && typeof msg === 'object' && 'method' in msg) {
@@ -50,6 +59,7 @@ class GatewayClient {
 
   // Send a JSON-RPC request and get a response
   async call(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    if (this.browserMode || !window.boboAPI) return {}
     const id = `req-${++this.reqId}`
     const msg = { jsonrpc: '2.0', id, method, params }
 
@@ -80,6 +90,7 @@ class GatewayClient {
 
   // Send a prompt to the backend
   sendPrompt(sessionId: string, text: string) {
+    if (this.browserMode || !window.boboAPI) return
     window.boboAPI.send({
       jsonrpc: '2.0',
       id: `prompt-${++this.reqId}`,

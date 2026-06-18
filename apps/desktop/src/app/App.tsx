@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { gateway } from '../lib/gateway'
+import { browserGateway } from '../lib/gateway-browser'
+
+// Auto-detect: Electron IPC vs Browser WebSocket
+const gw = window.boboAPI ? gateway : browserGateway
+const isBrowserDev = !window.boboAPI
 
 interface Message {
   id: string
@@ -24,21 +29,25 @@ function App() {
 
   // Connect to backend
   useEffect(() => {
-    gateway.connect()
+    if (isBrowserDev) {
+      gw.connect(9876)  // WebSocket to local ws_server
+    } else {
+      gw.connect()
+    }
 
-    gateway.on('gateway.ready', async () => {
+    gw.on('gw.ready', async () => {
       setConnected(true)
       // Create a new session
-      const result = await gateway.call('session.create', { title: 'New Chat' })
+      const result = await gw.call('session.create', { title: 'New Chat' })
       if (result && typeof result === 'object' && 'session_id' in result) {
         const sid = (result as Record<string, unknown>).session_id as string
         setSessionId(sid)
-        gateway.subscribe(sid)
+        gw.subscribe(sid)
       }
     })
 
     // Handle streaming text
-    gateway.on('message.delta', (data) => {
+    gw.on('message.delta', (data) => {
       const text = (data as Record<string, string>).text || ''
       setMessages((prev) => {
         const last = prev[prev.length - 1]
@@ -50,12 +59,12 @@ function App() {
     })
 
     // Handle message start
-    gateway.on('message.start', () => {
+    gw.on('message.start', () => {
       setStreaming(true)
     })
 
     // Handle message complete
-    gateway.on('message.complete', (data) => {
+    gw.on('message.complete', (data) => {
       setStreaming(false)
       const finalText = (data as Record<string, string>).final_text || ''
       if (finalText) {
@@ -69,7 +78,7 @@ function App() {
     })
 
     // Handle tool calls
-    gateway.on('tool.start', (data) => {
+    gw.on('tool.start', (data) => {
       const d = data as Record<string, unknown>
       setMessages((prev) => [
         ...prev,
@@ -78,7 +87,7 @@ function App() {
     })
 
     // Handle status updates (thinking, executing)
-    gateway.on('status.update', (data) => {
+    gw.on('status.update', (data) => {
       const d = data as Record<string, string>
       if (d.text && d.text !== '工具执行完成' && d.text !== '正在思考...') {
         setMessages((prev) => [
@@ -89,7 +98,7 @@ function App() {
     })
 
     // Handle backend errors
-    gateway.on('backend.exited', () => {
+    gw.on('backend.exited', () => {
       setConnected(false)
       setMessages((prev) => [
         ...prev,
@@ -97,7 +106,7 @@ function App() {
       ])
     })
 
-    return () => gateway.disconnect()
+    return () => { try { gw.disconnect() } catch {} }
   }, [])
 
   const handleSend = useCallback(() => {
@@ -107,7 +116,7 @@ function App() {
     setInput('')
     setMessages((prev) => [...prev, { id: `user-${Date.now()}`, role: 'user', text: userText }])
 
-    gateway.sendPrompt(sessionId, userText)
+    gw.sendPrompt(sessionId, userText)
   }, [input, sessionId, connected])
 
   const handleKeyDown = useCallback(
@@ -134,7 +143,11 @@ function App() {
           <div className="welcome">
             <h1>Bobo</h1>
             <p>你的个人 AI 助手</p>
-            {!connected && <p className="connecting-text">正在连接...</p>}
+            {isBrowserDev ? (
+              <p className="connecting-text">浏览器预览模式（在桌面 App 中可连接后端）</p>
+            ) : !connected ? (
+              <p className="connecting-text">正在连接...</p>
+            ) : null}
           </div>
         )}
 
@@ -169,7 +182,7 @@ function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={connected ? '输入消息... (Enter 发送)' : '正在连接后端...'}
+          placeholder={isBrowserDev ? '浏览器预览 — 在桌面 App 中可正常使用' : connected ? '输入消息... (Enter 发送)' : '正在连接后端...'}
           disabled={!connected || streaming}
         />
         <button className="send-btn" onClick={handleSend} disabled={!connected || !input.trim()}>
