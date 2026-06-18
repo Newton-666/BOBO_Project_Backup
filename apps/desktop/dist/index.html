@@ -42,11 +42,13 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 .tool-result.open { display:block; }
 .tool-result.error { color:#f48771; background:rgba(244,135,113,0.06); display:block; }
 /* Thinking */
-.think-box { padding:8px 12px; margin:8px 0; border-radius:8px; font-size:12px; color:var(--text2); display:none; align-items:center; gap:8px; }
-.think-box.show { display:flex; }
-.think-dot { width:6px; height:6px; border-radius:50%; background:#5b9bd5; animation:thinkPulse 1.4s infinite; }
+.think-box { padding:10px 14px; margin:8px 0; border-radius:8px; font-size:13px; color:var(--text2); display:none; background:rgba(91,155,213,0.04); border:1px solid rgba(91,155,213,0.12); }
+.think-box.show { display:block; }
+.think-box .think-label { font-size:11px; color:#5b9bd5; margin-bottom:4px; font-weight:600; display:flex; align-items:center; gap:8px; }
+.think-dot { width:5px; height:5px; border-radius:50%; background:#5b9bd5; animation:thinkPulse 1.4s infinite; display:inline-block; }
 .think-dot:nth-child(2) { animation-delay:0.2s; }
 .think-dot:nth-child(3) { animation-delay:0.4s; }
+.think-box .think-text { white-space:pre-wrap; word-break:break-word; line-height:1.5; }
 @keyframes thinkPulse { 0%,60%,100% { opacity:0.2; transform:scale(1); } 30% { opacity:1; transform:scale(1.3); } }
 .status { font-size:12px; color:var(--text2); text-align:center; padding:4px; }
 /* Code blocks */
@@ -98,7 +100,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
   <div id="main">
     <div id="welcome"><h1>Bobo</h1><p>你的个人 AI 助手</p></div>
     <div id="debug" style="text-align:center;font-size:11px;color:#666;font-family:monospace;padding:4px;">Starting...</div>
-    <div id="think-box" class="think-box"><span>Thinking</span><span class="think-dot"></span><span class="think-dot"></span><span class="think-dot"></span></div>
+    <div id="think-box" class="think-box"><div class="think-label"><span>Thinking</span><span class="think-dot"></span><span class="think-dot"></span><span class="think-dot"></span></div><div class="think-text"></div></div>
     <div id="chat"></div>
     <div id="input-box">
       <textarea id="input" rows="1" placeholder="Connecting..." disabled></textarea>
@@ -260,9 +262,12 @@ var toolResults = {};
 
 function addTool(name, context, toolId) {
   welcomeEl.style.display = 'none';
-  // Hide thinking box
+  // Minimize thinking box — keep text visible, remove animation
   var tb = document.getElementById('think-box');
-  if (tb) tb.classList.remove('show');
+  if (tb) {
+    tb.querySelector('.think-label').innerHTML = 'Thought';
+    tb.style.opacity = '0.6';
+  }
 
   var label = name;
   if (context && context !== name) label += ' (' + context + ')';
@@ -392,21 +397,28 @@ on('gateway.ready', async function() {
 });
 
 var streamingId = null;
+var thinkText = '';
 on('message.start', function() {
   messaging = true; debug('Receiving...');
+  thinkText = '';
   document.getElementById('think-box').classList.add('show');
+  document.querySelector('.think-text').textContent = '';
 });
 on('message.delta', function(data) {
   var t = data ? data.text || '' : '';
-  if (!streamingId) streamingId = 'stream-' + Date.now();
-  addMsg('bobo', t, streamingId, true);
+  // Show thinking text in the think box while no tool has been called yet
+  var thinkEl = document.querySelector('.think-text');
+  thinkText += t;
+  thinkEl.textContent = thinkText;
 });
 on('message.complete', function(data) {
   messaging = false; debug('Connected ✓');
   document.getElementById('think-box').classList.remove('show');
+  thinkText = '';
   if (streamingId) { var old = document.getElementById(streamingId); if (old) old.remove(); streamingId = null; }
   var t = data ? data.final_text || '' : '';
-  if (t) addMsg('bobo', t, 'msg-' + Date.now());
+  // Only show as message if there's actual final text (not tool-only rounds)
+  if (t && t.trim()) addMsg('bobo', t, 'msg-' + Date.now());
   loadSessions();
 });
 on('tool.start', function(data) {
