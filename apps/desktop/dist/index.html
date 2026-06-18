@@ -62,7 +62,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
     <div id="sidebar-footer"><span id="status-dot" class="dot red"></span><span id="status-text">Offline</span></div>
   </div>
   <div id="main">
-    <div id="welcome"><h1>Bobo</h1><p>你的个人 AI 助手</p><div id="debug">Starting...</div></div>
+    <div id="welcome"><h1>Bobo</h1><p>你的个人 AI 助手</p></div>
+    <div id="debug" style="text-align:center;font-size:11px;color:#666;font-family:monospace;padding:4px;">Starting...</div>
     <div id="chat"></div>
     <div id="input-box">
       <textarea id="input" rows="1" placeholder="Connecting..." disabled></textarea>
@@ -97,7 +98,8 @@ function call(m, p) {
   });
 }
 function sendPrompt(text) {
-  if (!currentSessionId || !window.boboAPI) return;
+  if (!currentSessionId || !window.boboAPI) { debug('Cannot send: no session or API'); return; }
+  debug('Sent ✓ (sid=' + currentSessionId.substring(0,12) + ')');
   window.boboAPI.send({ jsonrpc:'2.0', id:'prompt-'+(++reqId), method:'prompt.submit', params:{ session_id:currentSessionId, text:text } });
 }
 
