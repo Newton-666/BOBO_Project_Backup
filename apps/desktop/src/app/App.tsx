@@ -29,6 +29,10 @@ function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [debugInfo, setDebugInfo] = useState('Starting...')
+  const [showSetup, setShowSetup] = useState(false)
+  const [setupProvider, setSetupProvider] = useState('deepseek')
+  const [setupKey, setSetupKey] = useState('')
+  const [setupError, setSetupError] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   // Track streaming text buffer to avoid React re-render thrashing
@@ -63,6 +67,14 @@ function App() {
     gw.on('gateway.ready', async () => {
       setDebugInfo('Connected ✓')
       setConnected(true)
+      // Check if provider is configured
+      const statusResult = await gw.call('setup.status', {})
+      const needsSetup = statusResult && typeof statusResult === 'object' && (statusResult as Record<string, unknown>).provider_configured === false
+      if (needsSetup) {
+        setShowSetup(true)
+        setDebugInfo('Setup required')
+        return
+      }
       const result = await gw.call('session.create', { title: 'New Chat' })
       if (result && typeof result === 'object' && !('error' in result) && 'session_id' in result) {
         const r = result as Record<string, unknown>
@@ -184,6 +196,31 @@ function App() {
     gw.sendPrompt(sessionId, userText)
   }, [input, sessionId, connected])
 
+  const handleSetup = async () => {
+    if (!setupKey.trim()) return
+    setSetupError('')
+    setDebugInfo('Configuring...')
+    const result = await gw.call('setup.submit', { provider: setupProvider, api_key: setupKey.trim() })
+    if (result && typeof result === 'object' && (result as Record<string, unknown>).ok === false) {
+      const errMsg = (result as Record<string, unknown>).error as string || 'Configuration failed'
+      setSetupError(errMsg)
+      setDebugInfo('Setup failed')
+      return
+    }
+    setShowSetup(false)
+    setDebugInfo('Setup complete, creating session...')
+    // Create session after setup
+    const createResult = await gw.call('session.create', { title: 'New Chat' })
+    if (createResult && typeof createResult === 'object' && !('error' in createResult) && 'session_id' in createResult) {
+      const cr = createResult as Record<string, unknown>
+      const sid = cr.session_id as string
+      setSessionId(sid)
+      setSessions(prev => [...prev, { id: sid, title: 'New Chat' }])
+      gw.subscribe(sid)
+      setDebugInfo('Ready')
+    }
+  }
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }, [handleSend])
@@ -251,7 +288,27 @@ function App() {
 
       {/* Main */}
       <div className="main">
-        {messages.length === 0 ? (
+        {showSetup ? (
+          <div className="welcome">
+            <h1>Bobo</h1>
+            <p className="welcome-sub">配置 API Key</p>
+            <div className="setup-form">
+              <select className="setup-select" value={setupProvider} onChange={(e) => setSetupProvider(e.target.value)}>
+                <option value="deepseek">DeepSeek</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="google">Google</option>
+              </select>
+              <input className="setup-input" type="password" placeholder="Paste your API key here..."
+                value={setupKey} onChange={(e) => setSetupKey(e.target.value)} />
+              {setupError && <p className="setup-error">{setupError}</p>}
+              <button className="setup-btn" onClick={handleSetup} disabled={!setupKey.trim()}>
+                Submit
+              </button>
+            </div>
+            <p className="hint">Need a key? <a href="https://platform.deepseek.com/api-keys" target="_blank">Get DeepSeek key</a></p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="welcome">
             <h1>Bobo</h1>
             <p className="welcome-sub">你的个人 AI 助手</p>

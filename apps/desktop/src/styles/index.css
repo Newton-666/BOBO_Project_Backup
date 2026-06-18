@@ -251,3 +251,43 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
 .debug-line { margin-top:16px; font-size:11px; color:#666; font-family:monospace; }
+
+/* ── Setup Form ─────────────────────────────────────────── */
+
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  width: 340px;
+}
+.setup-select,
+.setup-input {
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+.setup-select { cursor: pointer; }
+.setup-select option { background: var(--bg-primary); }
+.setup-input:focus { border-color: #555; }
+.setup-input::placeholder { color: var(--text-muted); }
+.setup-btn {
+  padding: 12px;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.setup-btn:disabled { opacity: 0.3; cursor: default; }
+.setup-btn:not(:disabled):hover { opacity: 0.8; }
+.setup-error { color: #f44336; font-size: 13px; }
+.hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.hint a { color: var(--text-secondary); }

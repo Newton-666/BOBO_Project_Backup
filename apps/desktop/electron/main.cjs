@@ -9,6 +9,8 @@ const fs = require('fs')
 let mainWindow = null
 let backendProcess = null
 let backendBuffer = ''
+let backendRestartCount = 0
+const MAX_BACKEND_RESTARTS = 3
 
 // ── Python backend management ──────────────────────────────────────────
 
@@ -58,6 +60,15 @@ function startBackend() {
     backendProcess = null
     if (mainWindow) {
       mainWindow.webContents.send('backend-status', { status: 'exited', code })
+    }
+    // Auto-restart with backoff (up to MAX_BACKEND_RESTARTS times)
+    if (code !== 0 && backendRestartCount < MAX_BACKEND_RESTARTS) {
+      backendRestartCount++
+      const delay = backendRestartCount * 1000
+      console.log(`[bobo-desktop] Restarting backend in ${delay}ms (attempt ${backendRestartCount}/${MAX_BACKEND_RESTARTS})`)
+      setTimeout(() => startBackend(), delay)
+    } else if (code !== 0) {
+      console.error(`[bobo-desktop] Backend crashed ${MAX_BACKEND_RESTARTS} times, giving up`)
     }
   })
 
