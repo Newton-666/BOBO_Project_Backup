@@ -472,8 +472,8 @@ document.getElementById('settings-save').onclick = function() {
     <label>Obsidian Vault Path</label>
     <input id="cfg-obsidian" type="text" placeholder="/path/to/vault (需手动在 ~/.bobo/.env 设置)" />
     <div style="margin-top:16px;">
-      <button class="btn-save" id="settings-save">保存</button>
-      <button class="btn-close" id="settings-close">取消</button>
+      <button class="btn-save" id="settings-save" onclick="var k=document.getElementById('cfg-apikey').value.trim();if(k){call('setup.submit',{provider:document.getElementById('cfg-provider').value,api_key:k});addStatus('Saved');}this.closest('#settings-modal').classList.remove('open')">保存</button>
+      <button class="btn-close" id="settings-close" onclick="this.closest('#settings-modal').classList.remove('open')">取消</button>
     </div>
   </div>
 </div>
