@@ -102,26 +102,53 @@ class WebSocket:
         self.writer.close()
 
 
+# Global: all connected WebSocket clients + one shared monkey-patch
+_CLIENTS: list = []
+_PATCHED = False
+_LOOP = None
+
+
+async def _broadcast(msg):
+    """Send a JSON message to all connected WebSocket clients."""
+    data = json.dumps(msg, ensure_ascii=False)
+    dead = []
+    for ws in _CLIENTS:
+        try:
+            await ws.send_text(data)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        if ws in _CLIENTS:
+            _CLIENTS.remove(ws)
+
+
+def _make_ws_writer():
+    """Create the global write_json replacement — thread-safe via call_soon_threadsafe."""
+    def _ws_write(msg):
+        if _LOOP:
+            _LOOP.call_soon_threadsafe(
+                lambda m=msg: asyncio.ensure_future(_broadcast(m))
+            )
+        return True
+    return _ws_write
+
+
 async def handle_client(reader, writer):
+    global _PATCHED, _LOOP
     ws = await WebSocket.from_handshake(reader, writer)
     if not ws:
         writer.close()
         return
 
-    # Monkey-patch transport.write_json to route events to WebSocket.
-    # Engine emits events via _emit() → write_json() in a background thread.
-    # Capture the event loop NOW (main thread) — asyncio.get_event_loop()
-    # fails in background threads on Python 3.10+.
-    import bobo_tui_gateway.transport as transport
-    _original_write = transport.write_json
-    _loop = asyncio.get_event_loop()
-    def _ws_write(msg):
-        data = json.dumps(msg, ensure_ascii=False)
-        _loop.call_soon_threadsafe(
-            lambda d=data: asyncio.ensure_future(ws.send_text(d))
-        )
-        return True
-    transport.write_json = _ws_write
+    # Install shared monkey-patch once (first client)
+    if not _PATCHED:
+        import bobo_tui_gateway.transport as transport
+        _LOOP = asyncio.get_event_loop()
+        transport.write_json = _make_ws_writer()
+        _PATCHED = True
+
+    # Register this client
+    _CLIENTS.append(ws)
 
     from bobo_tui_gateway.server import dispatch
     from bobo_tui_gateway.entry import resolve_skin
@@ -142,7 +169,8 @@ async def handle_client(reader, writer):
             if resp is not None:
                 await ws.send_text(json.dumps(resp, ensure_ascii=False))
     finally:
-        transport.write_json = _original_write
+        if ws in _CLIENTS:
+            _CLIENTS.remove(ws)
         await ws.close()
 
 
