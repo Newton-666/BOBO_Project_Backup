@@ -266,13 +266,11 @@ function addMsg(role, text, id, append) {
   chatEl.appendChild(div); chatEl.scrollTop = chatEl.scrollHeight;
 }
 var toolResults = {};
+var toolArgs = {};  // store tool.start arguments for diff display
 
 function addTool(name, context, toolId) {
   welcomeEl.style.display = 'none';
-  if (thinkBoxEl) {
-    thinkBoxEl.querySelector('.think-label').innerHTML = 'Thought';
-    thinkBoxEl.style.opacity = '0.6';
-  }
+  freezeThinkBox();
 
   // Friendly names
   var friendly = name;
@@ -316,6 +314,8 @@ function updateToolResult(toolId, resultText, error) {
   var statusEl = div.querySelector('.tool-status');
   var toggleEl = div.querySelector('.tool-toggle');
   var resultEl = div.querySelector('.tool-result');
+  var args = toolArgs[toolId] || {};
+  var name = div.querySelector('.tool-name') ? div.querySelector('.tool-name').textContent : '';
 
   if (error) {
     dot.className = 'dot fail';
@@ -327,7 +327,26 @@ function updateToolResult(toolId, resultText, error) {
     dot.className = 'dot done';
     statusEl.textContent = 'done';
     statusEl.style.color = '#50a14f';
-    if (resultText) {
+    // Diff display for edit_file
+    if (name === '编辑文件' && args.old_string && args.new_string) {
+      var oldLines = args.old_string.split('\n');
+      var newLines = args.new_string.split('\n');
+      var diffHtml = '';
+      for (var i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
+        if (i < oldLines.length && i < newLines.length && oldLines[i] !== newLines[i]) {
+          diffHtml += '<div class="diff-del">- ' + esc(oldLines[i]) + '</div>';
+          diffHtml += '<div class="diff-add">+ ' + esc(newLines[i]) + '</div>';
+        } else if (i < oldLines.length && i >= newLines.length) {
+          diffHtml += '<div class="diff-del">- ' + esc(oldLines[i]) + '</div>';
+        } else if (i >= oldLines.length && i < newLines.length) {
+          diffHtml += '<div class="diff-add">+ ' + esc(newLines[i]) + '</div>';
+        } else {
+          diffHtml += '<div>  ' + esc(oldLines[i]) + '</div>';
+        }
+      }
+      resultEl.innerHTML = diffHtml;
+      resultEl.className = 'tool-result open';
+    } else if (resultText) {
       var preview = resultText.split('\n').filter(function(l){return l.trim();})[0] || '';
       if (preview.length > 120) preview = preview.substring(0, 120) + '...';
       resultEl.textContent = preview;
@@ -427,19 +446,25 @@ var thinkText = '';
 var toolsCalledThisRound = false;
 var thinkBoxEl = null;
 
+function freezeThinkBox() {
+  if (!thinkBoxEl) return;
+  if (thinkBoxEl._warnTimer) clearTimeout(thinkBoxEl._warnTimer);
+  if (thinkBoxEl._killTimer) clearTimeout(thinkBoxEl._killTimer);
+  thinkBoxEl.querySelector('.think-label').innerHTML = 'Thought';
+  thinkBoxEl.style.opacity = '0.5';
+}
+
 function createThinkBox() {
+  // Remove any old think box first
+  if (thinkBoxEl) { freezeThinkBox(); thinkBoxEl = null; }
   var tb = document.createElement('div');
   tb.className = 'think-box show';
   tb.innerHTML = '<div class="think-label"><span>Thinking</span><span class="think-dot"></span><span class="think-dot"></span><span class="think-dot"></span><span class="think-stop" title="Stop" onclick="stopThinking()">✕</span></div><div class="think-text"></div>';
   chatEl.appendChild(tb);
   chatEl.scrollTop = chatEl.scrollHeight;
-  // 10s: show warning
   tb._warnTimer = setTimeout(function() {
-    if (tb.parentNode) {
-      tb.querySelector('.think-label').innerHTML += ' <span style="color:#f48771;font-weight:400;font-size:10px;">(slow response...)</span>';
-    }
+    if (tb.parentNode) tb.querySelector('.think-label').innerHTML += ' <span style="color:#f48771;font-weight:400;font-size:10px;">(slow response...)</span>';
   }, 10000);
-  // 30s: auto-timeout — API likely hung
   tb._killTimer = setTimeout(function() {
     if (tb.parentNode) {
       tb.querySelector('.think-text').textContent = 'API 无响应，请稍后重试或点击 ✕ 停止。';
@@ -465,7 +490,7 @@ on('message.start', function() {
   toolsCalledThisRound = false;
   streamingId = null;
   welcomeEl.style.display = 'none';
-  thinkBoxEl = createThinkBox();
+  thinkBoxEl = createThinkBox();  // fresh think box every round
 });
 
 on('message.delta', function(data) {
@@ -481,25 +506,22 @@ on('message.delta', function(data) {
 });
 on('message.complete', function(data) {
   messaging = false; debug('Connected ✓');
-  if (thinkBoxEl) {
-    if (thinkBoxEl._warnTimer) clearTimeout(thinkBoxEl._warnTimer);
-    if (thinkBoxEl._killTimer) clearTimeout(thinkBoxEl._killTimer);
-    thinkBoxEl.style.opacity = '0.5';
-  }
+  freezeThinkBox();
   thinkText = '';
   if (streamingId) { var old = document.getElementById(streamingId); if (old) old.remove(); streamingId = null; }
   var t = data ? data.final_text || '' : '';
   if (t && t.trim()) {
-    if (thinkBoxEl) { thinkBoxEl.remove(); thinkBoxEl = null; }
     addMsg('bobo', t, 'msg-' + Date.now());
   }
   loadSessions();
 });
 on('tool.start', function(data) {
   toolsCalledThisRound = true;
+  var tid = data ? data.tool_id || 't'+Date.now() : 't'+Date.now();
+  toolArgs[tid] = data ? data.arguments || {} : {};
   addTool(data ? data.name || data.tool_id || 'Tool' : 'Tool',
           data ? data.context || '' : '',
-          data ? data.tool_id || 't'+Date.now() : 't'+Date.now());
+          tid);
 });
 on('tool.complete', function(data) {
   var tid = data ? data.tool_id || '' : '';
