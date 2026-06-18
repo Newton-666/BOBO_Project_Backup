@@ -457,6 +457,7 @@ def handle_prompt_submit(params: dict, rid: str) -> dict:
                         "name": data.get("name", ""),
                         "arguments": data.get("args", {}),
                         "context": data.get("context", ""),
+                        "todos": data.get("todos", []),
                         "session_id": sid,
                     })
                 elif event_type == "tool_result":
@@ -506,10 +507,15 @@ def handle_prompt_submit(params: dict, rid: str) -> dict:
                         "session_id": sid,
                     })
                 elif event_type == "status.update":
-                    # 将状态更新转发到 TUI
                     _emit("status.update", sid, {
                         "kind": data.get("kind", ""),
                         "text": data.get("text", ""),
+                        "session_id": sid,
+                    })
+                elif event_type == "todos.update":
+                    _emit("todos.update", sid, {
+                        "todos": data.get("todos", []),
+                        "plan_active": data.get("plan_active", False),
                         "session_id": sid,
                     })
 
@@ -545,11 +551,18 @@ def handle_prompt_submit(params: dict, rid: str) -> dict:
             engine = Engine(llm_caller, execute_tool, callback=on_event, confirm_callback=confirm_callback)
             engine.history = session.get("messages", [])
             engine._checkpoints = session.get("checkpoints", [])
+            # 恢复计划追踪
+            engine._plan = session.get("plan", [])
+            engine._plan_active = session.get("plan_active", False)
+            engine._plan_step = session.get("plan_step", 0)
             engine._interrupt_event = interrupt_event
             engine.run(text)
 
-            # 持久化回退快照
+            # 持久化回退快照 + 计划
             session["checkpoints"] = engine._checkpoints
+            session["plan"] = engine._plan
+            session["plan_active"] = engine._plan_active
+            session["plan_step"] = engine._plan_step
 
             # 清理中断事件
             with _current_engines_lock:

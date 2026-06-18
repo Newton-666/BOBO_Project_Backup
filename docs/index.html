@@ -1,0 +1,2726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bobo — 你的个人 AI 智能体</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2ecd9;
+    --bg-card: #ede5cc;
+    --bg-hover: #e8dfc0;
+    --border: #c4b896;
+    --text: #2c2416;
+    --text-dim: #7a6b4e;
+    --accent: #c44f00;
+    --accent-dim: #8a3700;
+    --accent-light: #e06800;
+    --accent-glow: rgba(196,79,0,0.10);
+    --accent-yellow: #b8860b;
+    --amber: #8b6914;
+    --radius: 0;
+    --max-w: 960px;
+    --rule: #c4b896;
+    --paper: #f2ecd9;
+    --paper-texture: none;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Times New Roman", "Noto Serif SC", serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    image-rendering: pixelated;
+    min-height: 100vh;
+    position: relative;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  }
+  body > * { position: relative; z-index: 1; }
+
+  /* ===== NEWSPAPER BASE ===== */
+  .newspaper {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .newspaper-rule {
+    border: none;
+    border-top: 3px double var(--rule);
+    margin: 0;
+  }
+  .newspaper-rule-thin {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0;
+  }
+  .newspaper-rule-dashed {
+    border: none;
+    border-top: 1px dashed var(--rule);
+    margin: 0;
+  }
+  .newspaper-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .newspaper-col-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+  }
+  .newspaper-date {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .newspaper-headline {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+  }
+  .newspaper-subhead {
+    font-size: 1rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .newspaper-byline {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .newspaper-section-title {
+    font-size: 0.7rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 2px solid var(--accent-dim);
+    padding-bottom: 4px;
+    margin-bottom: 16px;
+  }
+  .newspaper-card {
+    border: 1px solid var(--border);
+    padding: 20px;
+    background: var(--bg-card);
+    transition: border-color 0.2s;
+  }
+  .newspaper-card:hover {
+    border-color: var(--accent-dim);
+  }
+  .newspaper-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent-light);
+    margin-bottom: 6px;
+  }
+  .newspaper-card p {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .newspaper-card .click-hint {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--accent-dim);
+  }
+  .newspaper-card:hover .click-hint { color: var(--accent); }
+  .modal-link {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 6px 14px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .modal-link:hover { opacity: 0.85; }
+  .newspaper-ad {
+    border: 2px solid var(--accent-dim);
+    padding: 24px;
+    text-align: center;
+    background: var(--bg-card);
+  }
+  .newspaper-ad h3 {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .newspaper-masthead {
+    text-align: center;
+    padding: 24px 0 8px;
+  }
+  .newspaper-masthead h1 {
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .newspaper-masthead .edition {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ===== LEGACY OVERRIDES ===== */
+  .pixel, h1, h2, h3.pixel-title, .logo, .pixel-btn, .pixel-tag,
+  p, a, span, li, td, th, .section-desc, .feature-card p,
+  .workflow-step .content p, .qs-step .content p {
+    font-family: "Times New Roman", "Noto Serif SC", serif;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== CRT EFFECTS ===== */
+  .crt-overlay {
+    pointer-events: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 9998;
+    background: none;
+  }
+
+  /* ===== BOBO ASCII LOGO ===== */
+  .bobo-ascii {
+    font-family: "Courier New", "Courier", monospace;
+    font-size: 0.7rem;
+    line-height: 1.1;
+    white-space: pre;
+    color: var(--accent);
+    letter-spacing: 0;
+    word-spacing: 0;
+    text-shadow: 0 0 6px rgba(255,136,0,0.25), 0 0 2px rgba(255,136,0,0.4);
+    display: inline-block;
+    text-align: left;
+    font-kerning: none;
+    font-variant-ligatures: none;
+  }
+  .bobo-ascii .dim { color: var(--accent-dim); opacity: 0.6; }
+
+  /* ===== HEADER ===== */
+  header {
+    border-bottom: 2px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: var(--max-w);
+    margin: 0 auto;
+    position: relative;
+    background: linear-gradient(180deg, rgba(30,42,68,0.15) 0%, transparent 100%);
+  }
+  header::after {
+    content: "";
+    position: absolute;
+    bottom: -6px; left: 0; right: 0;
+    height: 2px;
+    background: rgba(61,40,24,0.3);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+  }
+  .logo-text {
+    font-family: "Times New Roman", serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    margin-left: 24px;
+    font-size: 1rem;
+    font-family: "Times New Roman", serif;
+    letter-spacing: 0.5px;
+    transition: color .15s;
+    position: relative;
+  }
+  nav a:hover { color: var(--accent); }
+  nav a::before {
+    content: ">";
+    color: var(--accent);
+    opacity: 0;
+    margin-right: 4px;
+    transition: opacity .15s;
+  }
+  nav a:hover::before { opacity: 1; }
+
+  /* ===== HERO ===== */
+  .hero {
+    text-align: center;
+    padding: 60px 24px 50px;
+    max-width: var(--max-w);
+    margin: 0 auto;
+    position: relative;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; height: 100%;
+    background-image:
+      linear-gradient(rgba(30,42,68,0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,42,68,0.15) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    max-width: var(--max-w);
+  }
+
+  .hero .bobo-ascii {
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    display: inline-block;
+    text-align: left;
+    filter: drop-shadow(0 0 8px rgba(255,136,0,0.15));
+  }
+
+  .hero h1 {
+    font-size: 2.8rem;
+    font-weight: 400;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    position: relative;
+    display: inline-block;
+    color: var(--accent);
+    text-shadow: 0 0 12px rgba(255,136,0,0.2);
+  }
+  .hero h1::after {
+    content: "";
+    display: block;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-yellow), var(--accent-dim));
+    margin-top: 4px;
+    width: 100%;
+    box-shadow: 0 0 8px rgba(255,136,0,0.3);
+  }
+  .hero h1 .cursor {
+    display: inline-block;
+    width: 10px;
+    height: 1em;
+    background: var(--accent);
+    margin-left: 4px;
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+    box-shadow: 0 0 6px rgba(255,136,0,0.5);
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .hero p {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin: 16px auto 24px;
+    letter-spacing: 0.5px;
+  }
+
+  .hero .tagline {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+  .hero .tagline span {
+    border: 2px solid var(--border);
+    padding: 4px 14px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    background: var(--bg-card);
+    transition: all .15s;
+  }
+  .hero .tagline span:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(255,136,0,0.05);
+  }
+
+  .btn-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block;
+    padding: 10px 28px;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    text-decoration: none;
+    border: 2px solid var(--border);
+    transition: all .15s;
+    cursor: pointer;
+    font-family: "Times New Roman", serif;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .btn-primary:hover {
+    background: transparent;
+    color: var(--accent);
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--accent);
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--accent);
+  }
+
+  /* ===== FLOW ARROWS (between sections) ===== */
+  .section-flow-arrow {
+    text-align: center;
+    padding: 8px 0 4px;
+    position: relative;
+    z-index: 2;
+  }
+  .section-flow-arrow .arrow-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    animation: flowPulse 2.5s ease-in-out infinite;
+  }
+  .section-flow-arrow .arrow-line {
+    width: 2px;
+    height: 24px;
+    background: linear-gradient(180deg, var(--accent-dim), var(--accent));
+    opacity: 0.3;
+  }
+  .section-flow-arrow .arrow-head {
+    color: var(--accent);
+    font-size: 1.2rem;
+    opacity: 0.35;
+    line-height: 1;
+    margin-top: -2px;
+  }
+  @keyframes flowPulse {
+    0%, 100% { opacity: 0.6; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(3px); }
+  }
+
+  /* ===== FEATURE GRID FLOW ===== */
+  .feature-grid-wrapper {
+    position: relative;
+  }
+  .feature-grid-flow {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: visible;
+  }
+  .feature-grid-flow svg {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+  }
+  .feature-grid-flow .flow-path {
+    stroke: var(--accent-dim);
+    stroke-width: 1.5;
+    fill: none;
+    opacity: 0.12;
+    stroke-dasharray: 6 4;
+    animation: dashMove 20s linear infinite;
+  }
+  @keyframes dashMove {
+    to { stroke-dashoffset: -100; }
+  }
+
+  /* ===== WORKFLOW CONNECTOR ===== */
+  .workflow-connector {
+    position: absolute;
+    left: 13px;
+    top: 28px;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent-dim), transparent);
+    opacity: 0.2;
+  }
+  .workflow-step:last-child .workflow-connector {
+    display: none;
+  }
+
+  /* ===== QS STEP CONNECTOR ===== */
+  .qs-connector {
+    position: absolute;
+    left: 23px;
+    top: 48px;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent-dim), transparent);
+    opacity: 0.15;
+  }
+  .qs-step:last-child .qs-connector {
+    display: none;
+  }
+
+  /* ===== HERO TO FEATURES FLOW ===== */
+  .hero-flow-indicator {
+    text-align: center;
+    padding: 0 0 16px;
+    position: relative;
+    z-index: 2;
+  }
+  .hero-flow-indicator .flow-text {
+    font-family: "Times New Roman", serif;
+    font-size: 0.8rem;
+    color: var(--accent-dim);
+    opacity: 0.4;
+    letter-spacing: 2px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .hero-flow-indicator .flow-arrow {
+    display: block;
+    font-size: 1.4rem;
+    color: var(--accent);
+    opacity: 0.3;
+    animation: flowPulse 2s ease-in-out infinite;
+  }
+
+  /* ===== SCROLL REVEAL ===== */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+
+  /* ===== INTRO CARD ===== */
+  #intro { padding-bottom: 8px; }
+  .intro-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 56px;
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+  .intro-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+  .intro-icon {
+    margin-bottom: 20px;
+    font-size: 1.6rem;
+    letter-spacing: 2px;
+  }
+  .intro-bracket { color: var(--text-dim); }
+  .intro-bobo {
+    color: var(--accent);
+    font-weight: 700;
+    font-family: "Times New Roman", serif;
+  }
+  .intro-heading {
+    font-size: 1.6rem;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+  }
+  .intro-text {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+    line-height: 1.8;
+    max-width: 600px;
+    margin: 0 auto 24px;
+  }
+  .intro-tags {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .intro-tag {
+    background: rgba(255, 152, 0, 0.1);
+    border: 1px solid rgba(255, 152, 0, 0.2);
+    color: var(--accent-light);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-family: "Times New Roman", serif;
+    letter-spacing: 0.5px;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .intro-tag:hover {
+    background: rgba(255, 152, 0, 0.2);
+    transform: translateY(-1px);
+  }
+
+  /* ===== SECTIONS ===== */
+  section { padding: 56px 24px; position: relative; }
+  section:nth-child(even) {
+    background: var(--bg);
+    background-image: var(--paper-texture);
+  }
+  .section-inner {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    position: relative;
+  }
+  .section-title {
+    font-size: 1.8rem;
+    font-weight: 400;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(255,136,0,0.1);
+  }
+  .section-title::before {
+    content: "##";
+    color: var(--accent-dim);
+    opacity: 0.4;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    margin-bottom: 32px;
+    margin-left: 36px;
+    font-size: 1rem;
+  }
+
+  /* ===== FEATURE GRID ===== */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 12px;
+  }
+  .feature-card {
+    background: linear-gradient(135deg, var(--bg-card) 0%, #0f1522 100%);
+    border: 2px solid var(--border);
+    padding: 22px;
+    transition: all .2s ease;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,136,0,0.15), transparent);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .feature-card:hover::before {
+    opacity: 1;
+  }
+  .feature-card:hover {
+    border-color: var(--accent);
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 rgba(255,136,0,0.12);
+    background: linear-gradient(135deg, #141c30 0%, #111827 100%);
+  }
+  .feature-card:active {
+    transform: translate(0px, 0px);
+    box-shadow: 2px 2px 0 rgba(255,136,0,0.08);
+  }
+  .feature-card .icon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: rgba(255,136,0,0.04);
+    transition: all .2s;
+  }
+  .feature-card .icon svg {
+    width: 20px;
+    height: 20px;
+  }
+  .feature-card:hover .icon {
+    border-color: var(--accent-dim);
+    background: rgba(255,136,0,0.08);
+  }
+  .feature-card:hover .icon svg { stroke: var(--accent-light); }
+  .feature-card h3 {
+    font-size: 1.15rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    color: var(--accent-light);
+    transition: color .2s;
+  }
+  .feature-card:hover h3 {
+    color: var(--accent);
+  }
+  .feature-card p {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .feature-card .click-hint {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    font-size: 0.7rem;
+    color: var(--border);
+    opacity: 0;
+    font-family: "Times New Roman", serif;
+    transition: opacity .2s;
+  }
+  .feature-card:hover .click-hint {
+    opacity: 1;
+    color: var(--accent-dim);
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10,14,24,0.90);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    animation: modalFadeIn .2s ease;
+  }
+  @keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--bg-card);
+    border: 2px solid var(--accent);
+    max-width: 640px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 0 30px rgba(255,136,0,0.08), 8px 8px 0 rgba(255,136,0,0.1);
+    animation: modalSlideIn .25s ease;
+  }
+  @keyframes modalSlideIn {
+    from { transform: translateY(12px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-header {
+    border-bottom: 2px solid var(--border);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 1;
+  }
+  .modal-header .modal-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: rgba(255,136,0,0.04);
+  }
+  .modal-header .modal-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+  .modal-header h3 {
+    font-size: 1.2rem;
+    font-weight: 400;
+    color: var(--accent-light);
+    flex: 1;
+    text-shadow: 0 0 6px rgba(255,136,0,0.1);
+  }
+  .modal-close {
+    background: none;
+    border: 2px solid var(--border);
+    color: var(--text-dim);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 10px;
+    font-family: "Times New Roman", serif;
+    transition: all .15s;
+  }
+  .modal-close:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(255,136,0,0.05);
+  }
+  .modal-body {
+    padding: 22px;
+  }
+  .modal-body p {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.8;
+    margin-bottom: 16px;
+  }
+  .modal-body .sub-title {
+    color: var(--accent);
+    font-size: 1rem;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .modal-body .sub-title::before {
+    content: ">";
+    color: var(--accent-dim);
+  }
+  .modal-body ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 16px;
+  }
+  .modal-body ul li {
+    padding: 6px 0;
+    padding-left: 16px;
+    position: relative;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    transition: color .15s;
+  }
+  .modal-body ul li:hover {
+    color: var(--text);
+  }
+  .modal-body ul li::before {
+    content: ">";
+    position: absolute;
+    left: 0;
+    color: var(--accent-dim);
+  }
+  .modal-body .terminal {
+    margin: 12px 0;
+  }
+  .modal-body .highlight-box {
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    margin: 12px 0;
+    background: rgba(255,136,0,0.02);
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    border-left: 3px solid var(--accent-dim);
+  }
+  .modal-body .highlight-box strong {
+    color: var(--accent-light);
+  }
+
+  /* ===== TERMINAL ===== */
+  .terminal {
+    background: #f5f0e8;
+    border: 2px solid var(--border);
+    padding: 18px 22px;
+    font-family: "Times New Roman", serif;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 16px 0;
+    position: relative;
+    color: var(--text);
+  }
+  .terminal::before {
+    content: "● ● ●";
+    position: absolute;
+    top: 8px; right: 12px;
+    font-size: 0.6rem;
+    color: var(--border);
+    letter-spacing: 4px;
+  }
+  .terminal::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+  }
+  .terminal .prompt { color: #cc5500; font-weight: 700; }
+  .terminal .comment { color: var(--text-dim); opacity: 0.5; }
+  .terminal .result { color: var(--accent-yellow); }
+  .terminal .highlight { color: var(--accent-light); }
+  .terminal .arrow { color: var(--accent-dim); }
+
+  /* ===== WORKFLOW ===== */
+  .workflow-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .workflow-layout { grid-template-columns: 1fr; }
+  }
+
+  .workflow-step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+    align-items: flex-start;
+    position: relative;
+  }
+  .workflow-step .num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: var(--accent);
+    background: rgba(255,136,0,0.05);
+    font-family: "Times New Roman", serif;
+  }
+  .workflow-step .content { flex: 1; }
+  .workflow-step .content h4 {
+    font-size: 1rem;
+    font-weight: 400;
+    margin-bottom: 2px;
+    color: var(--accent-light);
+  }
+  .workflow-step .content p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .workflow-section-title {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+
+  /* ===== QUICK START STEPS ===== */
+  .qs-step {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 28px;
+    align-items: flex-start;
+    position: relative;
+  }
+  .qs-step .big-num {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    color: var(--accent);
+    background: rgba(255,136,0,0.05);
+    font-family: "Times New Roman", serif;
+  }
+  .qs-step .content { flex: 1; }
+  .qs-step .content h3 {
+    font-size: 1.15rem;
+    font-weight: 400;
+    margin-bottom: 6px;
+    color: var(--accent-light);
+  }
+  .qs-step .content p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  /* ===== COPY BUTTON ===== */
+  .terminal-wrap { position: relative; }
+  .copy-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(255, 152, 0, 0.15);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    color: var(--accent);
+    font-family: "Times New Roman", serif;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+    z-index: 2;
+  }
+  .terminal-wrap:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { background: rgba(255, 152, 0, 0.3); }
+  .copy-btn.copied {
+    background: rgba(76, 175, 80, 0.25);
+    border-color: rgba(76, 175, 80, 0.5);
+    color: #66bb6a;
+  }
+
+  /* ===== TABLE ===== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.95rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+  }
+  th {
+    font-weight: 400;
+    color: var(--accent);
+    background: rgba(255,136,0,0.03);
+    letter-spacing: 0.5px;
+  }
+  tr:hover td {
+    background: linear-gradient(90deg, rgba(255,136,0,0.03), transparent);
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    border-top: 2px solid var(--border);
+    padding: 28px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ===== CREATOR ===== */
+  .creator-card {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px 36px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .creator-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #ff6b35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .creator-initials {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #000;
+    font-family: "Times New Roman", serif;
+  }
+  .creator-info { flex: 1; }
+  .creator-name {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .creator-role {
+    font-size: 0.85rem;
+    color: var(--accent-light);
+    margin-bottom: 10px;
+  }
+  .creator-bio {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .creator-links {
+    font-size: 0.85rem;
+  }
+  .creator-links a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .creator-links a:hover { color: #fff; }
+  .creator-sep {
+    color: var(--border);
+    margin: 0 8px;
+  }
+
+  /* ===== LAYOUT: SIDEBAR + CONTENT ===== */
+  .app-layout {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  .main-content {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    margin-left: 220px;
+  }
+
+  /* ===== DEMO ANIMATION ===== */
+  .demo-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .demo-controls {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .demo-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .demo-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--bg);
+    opacity: 0.3;
+    transition: opacity 0.5s ease, border-color 0.5s ease, background 0.5s ease;
+    position: relative;
+  }
+  .demo-step.active {
+    opacity: 1;
+    border-color: var(--accent);
+    background: var(--bg-card);
+  }
+  .demo-step.done {
+    opacity: 0.85;
+    border-color: var(--accent-dim);
+  }
+  .demo-step.error-step {
+    opacity: 1;
+    border-color: #c0392b;
+    background: #fdf0ef;
+  }
+  .demo-step-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .demo-step-content {
+    flex: 1;
+  }
+  .demo-step-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .demo-step-desc {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .demo-step-plan {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-left: 3px solid var(--accent-dim);
+    font-size: 0.75rem;
+    font-family: "Courier New", monospace;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+  .demo-step-plan span {
+    display: block;
+  }
+  .demo-step-result {
+    margin-top: 6px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-family: "Courier New", monospace;
+    display: inline-block;
+  }
+  .demo-step-result.success {
+    color: #1a7a3a;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+  }
+  .demo-step-result.error {
+    color: #c0392b;
+    background: #fdf0ef;
+    border: 1px solid #e8a8a0;
+  }
+  .demo-step-arrow {
+    position: absolute;
+    bottom: -16px;
+    left: 28px;
+    font-size: 1rem;
+    color: var(--accent-dim);
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .demo-step-arrow.show {
+    opacity: 1;
+  }
+  .demo-step-arrow.error-arrow {
+    color: #c0392b;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 2px solid var(--border);
+    padding: 24px 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-logo {
+    text-align: center;
+    padding: 0 16px 20px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .sidebar-logo .bobo-ascii {
+    font-size: 0.45rem;
+    margin-bottom: 6px;
+  }
+  .sidebar-logo h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .sidebar-logo .edition {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .sidebar-nav {
+    flex: 1;
+    padding: 0 12px;
+  }
+  .sidebar-nav .nav-section {
+    margin-bottom: 16px;
+  }
+  .sidebar-nav .nav-section-title {
+    font-size: 0.6rem;
+    color: var(--accent-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 4px 12px 6px;
+    opacity: 0.6;
+  }
+  .sidebar-nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-family: "Times New Roman", serif;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+    cursor: pointer;
+  }
+  .sidebar-nav a:hover {
+    color: var(--accent);
+    background: rgba(255,136,0,0.04);
+  }
+  .sidebar-nav a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(255,136,0,0.06);
+  }
+  .sidebar-nav a .nav-icon {
+    width: 16px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--accent-dim);
+    flex-shrink: 0;
+  }
+  .sidebar-nav a:hover .nav-icon { color: var(--accent); }
+  .sidebar-nav a.active .nav-icon { color: var(--accent); }
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .sidebar-footer a {
+    color: var(--accent-dim);
+    text-decoration: none;
+  }
+  .sidebar-footer a:hover { color: var(--accent); }
+
+  /* ===== MAIN CONTENT ===== */
+  .main-content {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  /* ===== PAGE SYSTEM (scroll mode) ===== */
+  .page {
+    display: block;
+    scroll-margin-top: 24px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .app-layout { flex-direction: column; }
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: relative;
+      padding: 12px 0;
+      border-right: none;
+      border-bottom: 2px solid var(--border);
+    }
+    .sidebar-logo { padding: 0 16px 12px; }
+    .sidebar-logo .bobo-ascii { font-size: 0.35rem; }
+    .sidebar-nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px; }
+    .sidebar-nav .nav-section { margin-bottom: 0; width: 100%; }
+    .sidebar-nav .nav-section-title { display: none; }
+    .sidebar-nav a { flex: 1; min-width: 80px; justify-content: center; padding: 6px 8px; font-size: 0.75rem; border-left: none; border-bottom: 2px solid transparent; }
+    .sidebar-nav a.active { border-left-color: transparent; border-bottom-color: var(--accent); }
+    .sidebar-footer { display: none; }
+    .hero h1 { font-size: 1.8rem; }
+    .hero .bobo-ascii { font-size: 0.55rem; }
+    header { flex-direction: column; gap: 10px; }
+    nav a { margin: 0 10px; font-size: 0.9rem; }
+    .section-title { font-size: 1.4rem; }
+    .bobo-ascii { font-size: 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="crt-overlay"></div>
+
+<div class="app-layout">
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="bobo-ascii">
+██████╗  ██████╗ ██████╗  ██████╗
+██╔══██╗██╔═══██╗██╔══██╗██╔═══██╗
+██████╔╝██║   ██║██████╔╝██║   ██║
+██╔══██╗██║   ██║██╔══██╗██║   ██║
+██████╔╝╚██████╔╝██████╔╝╚██████╔╝
+╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝
+    </div>
+    <h2>BOBO</h2>
+    <div class="edition">终端日报</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">▸ 目录</div>
+      <a class="active" onclick="switchPage('bobo')">
+        <span class="nav-icon">B</span> Bobo 介绍
+      </a>
+      <a onclick="switchPage('agentic-1')">
+        <span class="nav-icon">1</span> 什么是智能体
+      </a>
+      <a onclick="switchPage('agentic-2')">
+        <span class="nav-icon">2</span> 工具系统
+      </a>
+      <a onclick="switchPage('agentic-3')">
+        <span class="nav-icon">3</span> 记忆系统
+      </a>
+      <a onclick="switchPage('agentic-4')">
+        <span class="nav-icon">4</span> 工作流与未来
+      </a>
+      <a onclick="switchPage('workflows')">
+        <span class="nav-icon">▸</span> 工作流
+      </a>
+      <a onclick="switchPage('quickstart')">
+        <span class="nav-icon">→</span> 安装指南
+      </a>
+      <a onclick="switchPage('config')">
+        <span class="nav-icon">⚙</span> 配置
+      </a>
+      <a onclick="switchPage('creator')">
+        <span class="nav-icon">N</span> 创作者
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="https://github.com/niuqingwei/bobo-agent" target="_blank">GitHub</a> · MIT
+  </div>
+</aside>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="main-content">
+
+<!-- PAGE: BOBO 介绍 -->
+<div id="page-bobo" class="page">
+
+<div class="newspaper">
+
+<!-- MASTHEAD -->
+<div class="newspaper-masthead">
+  <div class="bobo-ascii" style="font-size:0.55rem;margin-bottom:8px;">
+██████╗  ██████╗ ██████╗  ██████╗
+██╔══██╗██╔═══██╗██╔══██╗██╔═══██╗
+██████╔╝██║   ██║██████╔╝██║   ██║
+██╔══██╗██║   ██║██╔══██╗██║   ██║
+██████╔╝╚██████╔╝██████╔╝╚██████╔╝
+╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝
+  </div>
+  <h1>BOBO TIMES</h1>
+  <div class="edition">终端日报 · 独立智能体 · 开源</div>
+</div>
+
+<hr class="newspaper-rule">
+
+<div class="newspaper-date">
+  <span>Vol. 1, No. 1</span>
+  <span>$(date +%Y-%m-%d)</span>
+  <span>终端 · 全球版</span>
+</div>
+
+<hr class="newspaper-rule-thin">
+
+<!-- HEADLINE / HERO -->
+<div class="newspaper-col" style="padding: 24px 0;">
+  <div>
+    <div class="newspaper-headline">
+      你的 AI 智能体
+      <span class="cursor"></span>
+    </div>
+    <div class="newspaper-subhead">
+      一个运行在终端中的 AI 助手，能读写你的笔记、邮件、代码，
+      连接任何 API，按计划执行任务。不只是聊天——而是真正「做事」。
+    </div>
+    <div class="newspaper-byline">By Newton · 独立开发者</div>
+    <div class="tagline" style="justify-content:flex-start;margin-bottom:16px;">
+      <span>Obsidian</span>
+      <span>Notion</span>
+      <span>Email</span>
+      <span>GitHub</span>
+      <span>Any API</span>
+    </div>
+    <div class="btn-group" style="justify-content:flex-start;">
+      <a href="javascript:switchPage('quickstart')" class="btn btn-primary">[ 快速开始 ]</a>
+      <a href="https://github.com/niuqingwei/bobo-agent" class="btn btn-secondary" target="_blank">[ GitHub ]</a>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;justify-content:center;padding:16px 0;gap:16px;">
+    <div>
+      <h3 style="font-size:1rem;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;">▸ 终端原生</h3>
+      <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px;">
+        无需离开命令行，自然语言驱动一切操作。
+      </p>
+      <div style="font-size:0.75rem;color:var(--accent-dim);font-family:"Times New Roman",serif;">
+        $ bobo "帮我查一下上周的会议笔记"
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--rule);padding-top:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.75rem;">
+        <div><span style="color:var(--accent);font-weight:700;">7</span> <span style="color:var(--text-dim);">LLM 提供商</span></div>
+        <div><span style="color:var(--accent);font-weight:700;">3</span> <span style="color:var(--text-dim);">平台搜索</span></div>
+        <div><span style="color:var(--accent);font-weight:700;">∞</span> <span style="color:var(--text-dim);">自定义 API</span></div>
+        <div><span style="color:var(--accent);font-weight:700;">MIT</span> <span style="color:var(--text-dim);">开源协议</span></div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--rule);padding-top:16px;">
+      <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;">支持平台</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="border:1px solid var(--border);padding:2px 8px;border-radius:3px;font-size:0.7rem;color:var(--accent-dim);">macOS</span>
+        <span style="border:1px solid var(--border);padding:2px 8px;border-radius:3px;font-size:0.7rem;color:var(--accent-dim);">Linux</span>
+        <span style="border:1px solid var(--border);padding:2px 8px;border-radius:3px;font-size:0.7rem;color:var(--accent-dim);">终端</span>
+        <span style="border:1px solid var(--border);padding:2px 8px;border-radius:3px;font-size:0.7rem;color:var(--accent-dim);">SSH</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="newspaper-rule">
+
+<!-- INTRO -->
+<section id="intro" class="reveal" style="padding-top: 20px;">
+  <div class="section-inner">
+    <div class="intro-card reveal">
+      <div class="intro-icon">
+        <span class="intro-bracket">&lt;</span>
+        <span class="intro-bobo">BOBO</span>
+        <span class="intro-bracket">/&gt;</span>
+      </div>
+      <h2 class="intro-heading">你的终端智能体</h2>
+      <p class="intro-text">
+        Bobo 是一个运行在终端里的 AI 智能体——它不只是聊天，而是能直接操作你的电脑。
+        读取文件、修改代码、搜索笔记、管理邮件、创建日历事件……你只需要用自然语言告诉它，
+        Bobo 就会调用工具帮你完成。它连接你的 Obsidian 知识库、Notion 工作空间、GitHub 仓库和邮箱，
+        像一个驻留在你电脑里的数字助手，随时待命。
+      </p>
+      <div class="intro-tags">
+        <span class="intro-tag"># 终端原生</span>
+        <span class="intro-tag"># 工具驱动</span>
+        <span class="intro-tag"># 知识连接</span>
+        <span class="intro-tag"># 开源</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES GRID -->
+<section style="padding: 32px 0;">
+  <hr class="newspaper-rule-thin">
+  <div class="newspaper-section-title" style="margin-top:16px;">▸ 核心能力</div>
+  <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:20px;">
+    Bobo 不是聊天机器人，而是一个能操作你数字世界的智能体。
+  </p>
+  <div class="newspaper-col-3">
+
+    <div class="newspaper-card reveal" onclick="openModal('notes')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 3h12l4 4v14H4z"/><path d="M16 3v4h4"/><path d="M8 11h8"/><path d="M8 15h6"/></svg></div>
+      <h3>笔记管理</h3>
+      <p>创建、搜索、归类 Obsidian 笔记。自动建立知识图谱，跨笔记发现关联。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('search')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/></svg></div>
+      <h3>跨平台搜索</h3>
+      <p>一次搜索覆盖 Obsidian、Notion、邮件，结果按时间排列，自动去重。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('code')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M14 4l-4 16"/></svg></div>
+      <h3>代码开发</h3>
+      <p>搜索代码、精确修改、运行测试、创建 PR。写完代码自动运行并报告结果。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('api')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><path d="M10 13l-3 3a3 3 0 0 0 4.24 4.24l3-3"/><path d="M14 11l3-3a3 3 0 0 0-4.24-4.24l-3 3"/><path d="M9 15l6-6"/></svg></div>
+      <h3>连接任何 API</h3>
+      <p>注册一个 REST API 只需一条指令，无需写 Python 代码。Jira、飞书均可。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('schedule')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+      <h3>定时任务</h3>
+      <p>用自然语言设置每天/工作日/每小时的重复任务，底层使用 cron 执行。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('memory')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></div>
+      <h3>长期记忆</h3>
+      <p>告诉 Bobo 一次的事它会记住。下次对话自动注入相关记忆，无需重复说明。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('privacy')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1.5"/></svg></div>
+      <h3>隐私安全</h3>
+      <p>API Key 自动脱敏，私密文件夹不可读写，无遥测上报，数据只留在你的机器上。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+    <div class="newspaper-card reveal" onclick="openModal('skills')">
+      <div class="icon" style="width:28px;height:28px;margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a2 2 0 0 0 0-2.8l-1.4-1.4a2 2 0 0 0-2.8 0L14.7 6.3z"/><path d="M8 21l-4-4 9-9 4 4-9 9z"/></svg></div>
+      <h3>可录制技能</h3>
+      <p>把常用操作录制成技能，下次一键执行。技能保存在本地，可分享给团队。</p>
+      <span class="click-hint">[ 详情 ]</span>
+    </div>
+
+  </div>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-bobo -->
+
+<!-- PAGE: 智能体入门 · 第1章 -->
+<div id="page-agentic-1" class="page">
+
+<div class="newspaper">
+
+<div class="newspaper-section-title" style="margin-top:32px;font-size:1.4rem;">▸ 什么是 Agentic AI？</div>
+<p style="font-size:0.9rem;color:var(--text-dim);margin-bottom:24px;">
+  Agentic AI（智能体 AI）是当前 AI 领域最重要的范式转变——从「对话」到「行动」。
+</p>
+
+<hr class="newspaper-rule">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 什么是智能体？</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        传统 AI 是「问答式」的——你问它答，输出停留在文字。而<strong style="color:var(--accent-light);">智能体（Agent）</strong>是「行动式」的——它能调用工具、操作文件、访问 API、执行代码，真正改变你电脑里的状态。
+      </p>
+      <div class="terminal-wrap"><div class="terminal" style="font-size:0.8rem;">
+        <span class="comment"># 传统 AI：只回答</span><br>
+        <span class="prompt">你：</span>帮我查一下今天的天气<br>
+        <span class="arrow">→</span> "抱歉，我无法获取实时信息"<br>
+        <br>
+        <span class="comment"># 智能体 AI：直接做事</span><br>
+        <span class="prompt">你：</span>帮我查一下今天的天气<br>
+        <span class="arrow">→</span> 调用天气 API → 获取数据 → 返回结果<br>
+        <span class="result">✓ 北京 25°C，晴，适合出门</span>
+      </div></div>
+    </div>
+
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 核心三要素</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        一个完整的 AI 智能体由三个核心组件构成：
+      </p>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">1</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">大语言模型（LLM）</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">大脑——理解自然语言、推理决策、规划步骤。支持 DeepSeek、OpenAI、Ollama 等 7 种提供商。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">2</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">工具系统（Tools）</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">手脚——读写文件、搜索代码、调用 API、操作数据库。每个工具都是智能体与真实世界交互的接口。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">3</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">记忆系统（Memory）</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">记忆——长期记忆保存偏好和规则，短期记忆跟踪当前任务上下文，让对话有连续性。</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="newspaper-rule-dashed" style="margin:24px 0;">
+
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 智能体 vs 聊天机器人</h3>
+      <table style="font-size:0.82rem;">
+        <tr><th>维度</th><th>聊天机器人</th><th>智能体</th></tr>
+        <tr><td>输出</td><td>文字</td><td>文字 + 行动</td></tr>
+        <tr><td>工具</td><td>无</td><td>文件、API、代码、搜索</td></tr>
+        <tr><td>记忆</td><td>单轮对话</td><td>长期 + 短期记忆</td></tr>
+        <tr><td>自主性</td><td>被动回答</td><td>主动规划执行</td></tr>
+        <tr><td>影响范围</td><td>聊天窗口内</td><td>你的数字世界</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 为什么现在？</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:12px;">
+        2024-2025 年，三个趋势交汇催生了智能体的爆发：
+      </p>
+      <ul style="list-style:none;padding:0;">
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">LLM 能力跃升</strong> — 推理、规划、工具调用能力大幅提升
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">工具标准化</strong> — MCP、Function Calling 等协议让 AI 能统一调用工具
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">开源生态成熟</strong> — 本地模型、低成本 API 让每个人都能运行智能体
+        </li>
+      </ul>
+      <div class="highlight-box" style="margin-top:12px;font-size:0.82rem;">
+        <strong>Bobo 的定位：</strong>一个开源的、运行在你终端里的通用智能体。不是 SaaS，不是云服务——是你的个人 AI 助手，完全由你掌控。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEMO: 架构运作动画 ===== -->
+<hr class="newspaper-rule-dashed" style="margin:24px 0;">
+<section style="padding: 24px 0;">
+  <div class="newspaper-section-title" style="margin-top:16px;">▸ 现场演示：Bobo 如何工作</div>
+  <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:20px;">
+    点击「运行演示」看看 Bobo 处理一个任务时的完整流程——包括出错后如何自我修复。
+  </p>
+
+  <div class="demo-container">
+    <div class="demo-controls">
+      <button class="btn btn-primary" onclick="runDemo()">[ ▶ 运行演示 ]</button>
+      <button class="btn btn-secondary" onclick="resetDemo()" style="margin-left:8px;">[ ↺ 重置 ]</button>
+      <span id="demo-status" style="margin-left:16px;font-size:0.8rem;color:var(--text-dim);"></span>
+    </div>
+
+    <div class="demo-flow">
+      <!-- 步骤 1: 用户输入 -->
+      <div class="demo-step" id="demo-step-0">
+        <div class="demo-step-icon">💬</div>
+        <div class="demo-step-content">
+          <div class="demo-step-title">用户输入</div>
+          <div class="demo-step-desc">"帮我查一下上周的会议笔记，总结要点发邮件给团队"</div>
+        </div>
+        <div class="demo-step-arrow">↓</div>
+      </div>
+
+      <!-- 步骤 2: LLM 规划 -->
+      <div class="demo-step" id="demo-step-1">
+        <div class="demo-step-icon">🧠</div>
+        <div class="demo-step-content">
+          <div class="demo-step-title">LLM 推理规划</div>
+          <div class="demo-step-desc">分析任务 → 拆解为子步骤 → 决定调用哪些工具</div>
+          <div class="demo-step-plan">
+            <span>1. search_obsidian("上周会议")</span>
+            <span>2. read 找到的笔记</span>
+            <span>3. 用 LLM 总结要点</span>
+            <span>4. send_email(团队, 总结)</span>
+          </div>
+        </div>
+        <div class="demo-step-arrow">↓</div>
+      </div>
+
+      <!-- 步骤 3: 调用工具 -->
+      <div class="demo-step" id="demo-step-2">
+        <div class="demo-step-icon">🔧</div>
+        <div class="demo-step-content">
+          <div class="demo-step-title">执行工具调用</div>
+          <div class="demo-step-desc">search_obsidian("上周会议") → 找到 2 篇笔记</div>
+          <div class="demo-step-result success">✓ 搜索成功，找到笔记</div>
+        </div>
+        <div class="demo-step-arrow">↓</div>
+      </div>
+
+      <!-- 步骤 4: 出错！ -->
+      <div class="demo-step" id="demo-step-3">
+        <div class="demo-step-icon">⚠️</div>
+        <div class="demo-step-content">
+          <div class="demo-step-title">工具调用失败</div>
+          <div class="demo-step-desc">send_email() → 邮件发送失败：SMTP 连接超时</div>
+          <div class="demo-step-result error">✗ 发送失败：Connection timed out</div>
+        </div>
+        <div class="demo-step-arrow error-arrow">↓</div>
+      </div>
+
+      <!-- 步骤 5: LLM 自调整 -->
+      <div class="demo-step" id="demo-step-4">
+        <div class="demo-step-icon">🔄</div>
+        <div class="demo-step-content">
+          <div class="demo-step-title">LLM 自调整</div>
+          <div class="demo-step-desc">分析错误原因 → 尝试替代方案</div>
+          <div class="demo-step-plan">
+            <span>分析：SMTP 超时，可能是端口或网络问题</span>
+            <span>→ 改用备选邮件服务重试</span>
+          </div>
+        </div>
+        <div class="demo-step-arrow">↓</div>
+      </div>
+
+      <!-- 步骤 6: 重试成功 -->
+      <div class="demo-step" id="demo-step-5">
+        <div class="demo-step-icon">✅</div>
+        <div class="demo-step-content">
+          <div class="demo-step-title">重试成功</div>
+          <div class="demo-step-desc">send_email() → 邮件已发送给团队</div>
+          <div class="demo-step-result success">✓ 任务完成！耗时 12.3s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-agentic-1 -->
+
+<!-- PAGE: 智能体入门 · 第2章 -->
+<div id="page-agentic-2" class="page">
+
+<div class="newspaper">
+
+<div class="newspaper-section-title" style="margin-top:32px;font-size:1.4rem;">▸ 工具系统：智能体的手脚</div>
+<p style="font-size:0.9rem;color:var(--text-dim);margin-bottom:24px;">
+  LLM 是大脑，工具就是手脚。没有工具的 AI 只能思考，有了工具的 AI 才能行动。
+</p>
+
+<hr class="newspaper-rule">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 什么是工具系统？</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        工具系统是智能体与真实世界交互的接口。每个工具都是一个<strong style="color:var(--accent-light);">函数</strong>——有输入参数、有输出结果。智能体根据任务需求，自主选择调用哪个工具、传入什么参数。
+      </p>
+      <div class="terminal-wrap"><div class="terminal" style="font-size:0.8rem;">
+        <span class="comment"># Bobo 的工具调用示例</span><br>
+        <span class="prompt">你：</span>帮我搜索笔记中关于"智能体"的内容<br>
+        <span class="arrow">→</span> Bobo 调用 search_obsidian(query="智能体")<br>
+        <span class="result">✓ 找到 3 篇相关笔记</span><br>
+        <br>
+        <span class="prompt">你：</span>把结果保存到新笔记<br>
+        <span class="arrow">→</span> Bobo 调用 write_obsidian(filename, content)<br>
+        <span class="result">✓ 笔记已创建</span>
+      </div></div>
+    </div>
+
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 工具的三种类型</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        智能体的工具可以分为三个层次：
+      </p>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">1</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">内置工具</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">读写文件、搜索代码、执行终端命令、操作 Obsidian 笔记——Bobo 出厂自带的核心能力。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">2</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">API 工具</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">通过 api_register 连接任何 REST API——Jira、飞书、GitHub、自定义后端。无需写代码，一条指令注册一个 API。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">3</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">MCP 协议</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">Model Context Protocol——AI 界的 USB 标准。任何实现了 MCP 的服务都可以无缝接入 Bobo 的工具系统。</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="newspaper-rule-dashed" style="margin:24px 0;">
+
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 工具调用的生命周期</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        一个完整的工具调用经历五个阶段：
+      </p>
+      <div class="terminal-wrap"><div class="terminal" style="font-size:0.8rem;">
+        <span class="comment"># 1. 意图识别</span><br>
+        <span class="prompt">Bobo:</span> 用户想搜索笔记 → 需要 search_obsidian 工具<br>
+        <br>
+        <span class="comment"># 2. 参数构建</span><br>
+        <span class="prompt">Bobo:</span> search_obsidian(query="智能体入门")<br>
+        <br>
+        <span class="comment"># 3. 工具执行</span><br>
+        <span class="prompt">系统:</span> 执行中...<br>
+        <br>
+        <span class="comment"># 4. 结果解析</span><br>
+        <span class="prompt">Bobo:</span> 返回了 3 条结果，格式正确<br>
+        <br>
+        <span class="comment"># 5. 反馈用户</span><br>
+        <span class="result">✓ 已找到 3 篇相关笔记，以下是摘要...</span>
+      </div></div>
+    </div>
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 为什么工具系统是核心？</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:12px;">
+        没有工具的 AI 只是一个<strong style="color:var(--text-dim);">知识库</strong>，有了工具的 AI 才是一个<strong style="color:var(--accent-light);">智能体</strong>。
+      </p>
+      <ul style="list-style:none;padding:0;">
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">突破信息边界</strong> — 不再局限于训练数据，能实时获取最新信息
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">改变真实世界</strong> — 创建文件、发送邮件、管理项目，产生实际影响
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">可组合扩展</strong> — 工具可以组合使用，完成复杂工作流
+        </li>
+      </ul>
+      <div class="highlight-box" style="margin-top:12px;font-size:0.82rem;">
+        <strong>Bobo 目前拥有 30+ 个内置工具</strong>，覆盖文件操作、代码开发、知识管理、通信协作、系统控制等类别。
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-agentic-2 -->
+
+<!-- PAGE: 智能体入门 · 第3章 -->
+<div id="page-agentic-3" class="page">
+
+<div class="newspaper">
+
+<div class="newspaper-section-title" style="margin-top:32px;font-size:1.4rem;">▸ 记忆系统：让 AI 记住你</div>
+<p style="font-size:0.9rem;color:var(--text-dim);margin-bottom:24px;">
+  没有记忆的 AI 每次对话都是陌生人。记忆系统让智能体认识你、了解你、记住你的偏好。
+</p>
+
+<hr class="newspaper-rule">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 为什么需要记忆？</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        大语言模型本身是<strong style="color:var(--text-dim);">无状态的</strong>——每次对话都是独立的，它不记得上次你说了什么。记忆系统就是为了解决这个问题而设计的。
+      </p>
+      <div class="terminal-wrap"><div class="terminal" style="font-size:0.8rem;">
+        <span class="comment"># 没有记忆的 AI</span><br>
+        <span class="prompt">你：</span>我叫小明<br>
+        <span class="arrow">→</span> "你好小明！"<br>
+        <span class="prompt">你：</span>我叫什么名字？<br>
+        <span class="arrow">→</span> "抱歉，我不知道你的名字"<br>
+        <br>
+        <span class="comment"># 有记忆的 AI（Bobo）</span><br>
+        <span class="prompt">你：</span>我叫小明<br>
+        <span class="arrow">→</span> "你好小明！"<br>
+        <span class="prompt">你：</span>我叫什么名字？<br>
+        <span class="arrow">→</span> "你叫小明"<br>
+        <span class="result">✓ 记忆已保存，下次对话仍有效</span>
+      </div></div>
+    </div>
+
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 记忆的层次</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        Bobo 的记忆系统分为三个层次：
+      </p>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">1</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">短期记忆</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">当前对话的上下文——你刚才说了什么、正在做什么任务。对话结束后自动清空。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">2</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">长期记忆</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">通过 save_memory 保存的永久信息——你的名字、偏好、工作习惯。每次对话自动注入。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">3</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">知识库</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">你的 Obsidian 笔记库——Bobo 可以搜索、阅读、归类你的笔记，把你的知识变成它的知识。</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="newspaper-rule-dashed" style="margin:24px 0;">
+
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 记忆的实际应用</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        记忆系统让 Bobo 能做到很多普通 AI 做不到的事：
+      </p>
+      <ul style="list-style:none;padding:0;">
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">记住你的名字和偏好</strong> — "我喜欢喝冰美式" → 以后每次提到咖啡都知道
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">记住工作规则</strong> — "修改代码必须用 diff 格式" → 每次改代码都自动遵守
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">记住项目上下文</strong> — "继续昨天的工作" → 自动定位到上次的文件
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">跨会话连续性</strong> — 关闭终端再打开，Bobo 还记得你
+        </li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 隐私设计</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:12px;">
+        记忆系统存储在你的本地机器上，不会上传到任何云端。你可以随时查看、编辑或删除记忆。
+      </p>
+      <div class="highlight-box" style="margin-top:12px;font-size:0.82rem;">
+        <strong>Bobo 的记忆原则：</strong>你告诉它的事它记住，你没说的它不问。记忆完全本地存储，你可以随时清空。
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-agentic-3 -->
+
+<!-- PAGE: 智能体入门 · 第4章 -->
+<div id="page-agentic-4" class="page">
+
+<div class="newspaper">
+
+<div class="newspaper-section-title" style="margin-top:32px;font-size:1.4rem;">▸ 从对话到行动：智能体的工作流</div>
+<p style="font-size:0.9rem;color:var(--text-dim);margin-bottom:24px;">
+  真正的智能体不是被动回答，而是主动规划、执行、验证——像一个工程师一样工作。
+</p>
+
+<hr class="newspaper-rule">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 智能体的思考循环</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        智能体不是一次调用就结束的。它遵循一个<strong style="color:var(--accent-light);">思考-行动-观察</strong>的循环：
+      </p>
+      <div class="terminal-wrap"><div class="terminal" style="font-size:0.8rem;">
+        <span class="comment"># 思考循环示例：修复一个 bug</span><br>
+        <span class="prompt">你：</span>帮我修复这个 bug<br>
+        <br>
+        <span class="comment"># 第1轮：思考 → 行动 → 观察</span><br>
+        <span class="prompt">Bobo:</span> 先搜索相关代码<br>
+        <span class="arrow">→</span> grep_code("bug_pattern")<br>
+        <span class="result">✓ 找到 3 处匹配</span><br>
+        <br>
+        <span class="comment"># 第2轮：思考 → 行动 → 观察</span><br>
+        <span class="prompt">Bobo:</span> 读取文件确认问题<br>
+        <span class="arrow">→</span> read_local_file("server.py")<br>
+        <span class="result">✓ 发现第42行有逻辑错误</span><br>
+        <br>
+        <span class="comment"># 第3轮：思考 → 行动 → 观察</span><br>
+        <span class="prompt">Bobo:</span> 修复并验证<br>
+        <span class="arrow">→</span> edit_file → run_tests<br>
+        <span class="result">✓ 测试通过，bug 已修复</span>
+      </div></div>
+    </div>
+
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 智能体的核心能力</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        一个成熟的智能体具备以下能力：
+      </p>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">1</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">任务分解</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">把一个大目标拆成多个小步骤，按顺序执行。例如"帮我搭建一个博客"→ 创建项目 → 安装依赖 → 编写代码 → 启动服务。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">2</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">错误恢复</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">工具调用失败时自动尝试替代方案。API 超时 → 换一个端点；文件不存在 → 搜索相似文件。</p>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="width:24px;height:24px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--accent);flex-shrink:0;">3</span>
+          <span style="font-size:0.9rem;color:var(--accent-light);font-weight:500;">自我验证</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-left:34px;line-height:1.6;">修改代码后自动运行测试，确认没有破坏已有功能。写文件后读取验证内容正确。</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="newspaper-rule-dashed" style="margin:24px 0;">
+
+  <div class="newspaper-col">
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 智能体的未来</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:16px;">
+        AI 智能体正在快速进化，未来的方向包括：
+      </p>
+      <ul style="list-style:none;padding:0;">
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">多智能体协作</strong> — 多个智能体分工合作，像团队一样工作
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">长期任务执行</strong> — 持续数小时甚至数天的复杂任务，自动汇报进度
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">自主学习</strong> — 从历史任务中学习经验，不断优化执行策略
+        </li>
+        <li style="padding:6px 0;padding-left:16px;position:relative;font-size:0.85rem;color:var(--text-dim);line-height:1.6;">
+          <span style="position:absolute;left:0;color:var(--accent-dim);">▸</span>
+          <strong style="color:var(--accent-light);">跨设备协同</strong> — 手机、电脑、云端智能体互联互通
+        </li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 开始你的智能体之旅</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.8;margin-bottom:12px;">
+        Bobo 是一个开源的、运行在你终端里的通用智能体。安装只需一条命令：
+      </p>
+      <div class="terminal-wrap"><div class="terminal" style="font-size:0.8rem;">
+        <span class="prompt">$</span> pip install bobo-agent<br>
+        <span class="prompt">$</span> bobo --help<br>
+        <span class="result">✓ Bobo 已就绪，输入你的第一个指令吧</span>
+      </div></div>
+      <div class="highlight-box" style="margin-top:12px;font-size:0.82rem;">
+        <strong>Bobo 是开源的</strong> — <a href="https://github.com/niuqingwei/bobo-agent" style="color:var(--accent-light);">GitHub</a> · MIT License · 欢迎贡献
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-agentic-4 -->
+
+<!-- PAGE: 工作流 -->
+<div id="page-workflows" class="page">
+
+<div class="newspaper">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-section-title" style="margin-top:16px;">▸ 常用工作流 · 专栏</div>
+  <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:20px;">
+    几个典型场景，展示 Bobo 如何帮你提效。
+  </p>
+
+  <div class="newspaper-col">
+    <div class="reveal">
+      <h3 style="font-size:1rem;font-weight:600;color:var(--accent-light);margin-bottom:12px;">▸ 修改代码 → 测试 → PR</h3>
+      <div class="workflow-step">
+        <div class="num">1<div class="workflow-connector"></div></div>
+        <div class="content">
+          <h4>定位代码</h4>
+          <p>用 grep_code 搜索函数定义或关键词，精确找到要修改的位置。</p>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="num">2<div class="workflow-connector"></div></div>
+        <div class="content">
+          <h4>精确修改</h4>
+          <p>用 edit_file 做字符串替换，只改目标代码，不动整体架构。变更用 diff 格式展示。</p>
+        </div>
+        </div>
+        <div class="workflow-step">
+          <div class="num">3<div class="workflow-connector"></div></div>
+          <div class="content">
+            <h4>运行测试</h4>
+            <p>自动运行测试套件，失败则定位问题 → 修复 → 再次验证，直到全部通过。</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="num">4</div>
+          <div class="content">
+            <h4>创建 PR</h4>
+            <p>从当前分支创建 Pull Request，附带变更说明，一键提交审查。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal reveal reveal-delay-4">
+        <span class="prompt">$</span> grep_code("def calculate")<br>
+        <span class="arrow">→</span> src/pricing.py:42<br>
+        <br>
+        <span class="prompt">$</span> edit_file(<br>
+        &nbsp;&nbsp;old="tax_rate = 0.13",<br>
+        &nbsp;&nbsp;new="tax_rate = 0.15"<br>
+        )<br>
+        <span class="result">✓ 已替换</span><br>
+        <br>
+        <span class="prompt">$</span> run_tests()<br>
+        <span class="result">✓ 12 passed, 0 failed</span><br>
+        <br>
+        <span class="prompt">$</span> github_create_pr(<br>
+        &nbsp;&nbsp;title="fix: update tax rate"<br>
+        )<br>
+        <span class="result">✓ PR #42 created</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 36px;">
+      <h3 class="workflow-section-title">▸ 跨平台搜索</h3>
+      <div class="terminal-wrap"><div class="terminal">
+        <span class="prompt">你：</span>找一下关于 API 重构的所有资料<br>
+        <span class="prompt">Bobo：</span><br>
+        &nbsp;&nbsp;<span class="arrow">→</span> [Obsidian] Projects/API-redesign.md<br>
+        &nbsp;&nbsp;<span class="arrow">→</span> [Notion] Q1 Planning<br>
+        &nbsp;&nbsp;<span class="arrow">→</span> [Email] "Re: API redesign feedback"<br>
+        <span class="result">→ 找到 5 条结果，来自 3 个平台</span>
+      </div></div>
+    </div>
+
+    <div style="margin-top: 28px;">
+      <h3 class="workflow-section-title">▸ 定时任务</h3>
+      <div class="terminal-wrap"><div class="terminal">
+        <span class="prompt">你：</span>每天早上 7 点更新知识图谱<br>
+        <span class="prompt">Bobo：</span><span class="result">✓</span> 已创建定时任务 "wiki-daily"，每天 07:00 执行<br>
+        <br>
+        <span class="prompt">你：</span>取消早上的任务<br>
+        <span class="prompt">Bobo：</span><span class="result">✓</span> 已删除定时任务 "wiki-daily"
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FLOW ARROW -->
+<div class="section-flow-arrow">
+  <div class="arrow-body">
+    <div class="arrow-line"></div>
+    <span class="arrow-head">▼</span>
+  </div>
+</div>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-workflows -->
+
+<!-- PAGE: 安装指南 -->
+<div id="page-quickstart" class="page">
+
+<div class="newspaper">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-section-title" style="margin-top:16px;">▸ 安装指南 · 广告栏</div>
+
+  <div class="newspaper-ad" style="margin-bottom:24px;">
+    <h3>3 步启动 Bobo</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:left;">
+
+      <div>
+        <div style="font-size:0.75rem;color:var(--accent-dim);margin-bottom:4px;">Step 1</div>
+        <h4 style="font-size:0.9rem;color:var(--accent-light);margin-bottom:4px;">安装</h4>
+        <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;">Python 3.10+ &amp; Node.js v18+</p>
+        <div class="terminal-wrap"><div class="terminal" style="margin:0;font-size:0.8rem;">
+          <span class="prompt">$</span> pip install bobo-agent
+        </div></div>
+      </div>
+
+      <div>
+        <div style="font-size:0.75rem;color:var(--accent-dim);margin-bottom:4px;">Step 2</div>
+        <h4 style="font-size:0.9rem;color:var(--accent-light);margin-bottom:4px;">启动</h4>
+        <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;">首次启动会显示设置界面</p>
+        <div class="terminal-wrap"><div class="terminal" style="margin:0;font-size:0.8rem;">
+          <span class="prompt">$</span> bobo
+        </div></div>
+      </div>
+
+      <div>
+        <div style="font-size:0.75rem;color:var(--accent-dim);margin-bottom:4px;">Step 3</div>
+        <h4 style="font-size:0.9rem;color:var(--accent-light);margin-bottom:4px;">连接服务</h4>
+        <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;">Obsidian / Notion / GitHub</p>
+        <div class="terminal-wrap"><div class="terminal" style="margin:0;font-size:0.8rem;">
+          <span class="prompt">$</span> echo "OBSIDIAN_VAULT=..." &gt;&gt; ~/.bobo/.env
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-quickstart -->
+
+<!-- PAGE: 配置 -->
+<div id="page-config" class="page">
+
+<div class="newspaper">
+
+<section style="padding: 24px 0;">
+  <div class="newspaper-section-title" style="margin-top:16px;">▸ 配置 · 附录</div>
+  <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px;">
+    Bobo 支持多种 LLM 提供商，通过环境变量切换。
+  </p>
+
+  <table>
+    <tr><th>环境变量</th><th>说明</th><th>默认值</th></tr>
+    <tr><td>BOBO_PROVIDER</td><td>LLM 提供商</td><td>deepseek</td></tr>
+    <tr><td>DEEPSEEK_API_KEY</td><td>DeepSeek API Key</td><td>—</td></tr>
+    <tr><td>OPENAI_API_KEY</td><td>OpenAI API Key</td><td>—</td></tr>
+    <tr><td>API_MODEL_NAME</td><td>模型名称</td><td>deepseek-chat</td></tr>
+    <tr><td>OBSIDIAN_VAULT</td><td>Obsidian 笔记库路径</td><td>—</td></tr>
+  </table>
+
+  <p style="color: var(--text-dim); margin-top: 16px; font-size:0.85rem;">
+    &gt; 支持 7 种提供商：DeepSeek、OpenAI、Ollama（本地）、Anthropic、Google Gemini、Groq、OpenRouter
+  </p>
+</section>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-config -->
+
+<!-- MODAL OVERLAY -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-header">
+      <span class="modal-icon" id="modalIcon">📝</span>
+      <h3 id="modalTitle">笔记管理</h3>
+      <button class="modal-close" onclick="closeModal()">[ X ]</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: 创作者 -->
+<div id="page-creator" class="page">
+
+<div class="newspaper">
+
+<section style="padding: 40px 24px 16px;">
+  <div class="section-inner">
+    <div class="creator-card reveal">
+      <div class="creator-avatar">
+        <span class="creator-initials">N</span>
+      </div>
+      <div class="creator-info">
+        <h3 class="creator-name">Newton</h3>
+        <p class="creator-role">独立开发者 · AI 智能体探索者</p>
+        <p class="creator-bio">
+          从终端出发，用代码构建能真正「做事」的 AI 智能体。
+          Bobo 是我对「人机协作」的一次实践——让 AI 不只是聊天，而是成为你数字世界的一部分。
+        </p>
+        <div class="creator-links">
+          <a href="https://github.com/niuqingwei" target="_blank">GitHub</a>
+          <span class="creator-sep">/</span>
+          <a href="https://x.com/niuqingwei" target="_blank">X / Twitter</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Bobo — MIT License</p>
+  <p style="margin-top: 4px;">
+    <a href="https://github.com/niuqingwei/bobo-agent">[ GitHub ]</a>
+  </p>
+</footer>
+
+</div><!-- /.newspaper -->
+</div><!-- /#page-creator -->
+
+</main><!-- /.main-content -->
+
+<script>
+// Page switching — smooth scroll
+function switchPage(pageId) {
+  const target = document.getElementById('page-' + pageId);
+  if (target) {
+    const offset = target.getBoundingClientRect().top + window.scrollY - 16;
+    window.scrollTo({ top: offset, behavior: 'smooth' });
+  }
+}
+
+// Scroll spy — highlight nav on scroll
+function initScrollSpy() {
+  const pages = document.querySelectorAll('.page');
+  const navLinks = document.querySelectorAll('.sidebar-nav a');
+  const observer = new IntersectionObserver((entries) => {
+    let activeId = null;
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        activeId = entry.target.id.replace('page-', '');
+      }
+    });
+    if (activeId) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const link = document.querySelector('.sidebar-nav a[onclick*="' + activeId + '"]');
+      if (link) link.classList.add('active');
+    }
+  }, { rootMargin: '-80px 0px -60% 0px' });
+  pages.forEach(p => observer.observe(p));
+}
+document.addEventListener('DOMContentLoaded', initScrollSpy);
+
+const featureDetails = {
+  notes: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 3h12l4 4v14H4z"/><path d="M16 3v4h4"/><path d="M8 11h8"/><path d="M8 15h6"/></svg>`,
+    title: "笔记管理",
+    desc: "Bobo 深度集成 Obsidian，能像人一样操作你的笔记库——创建、搜索、归类、关联，自动建立知识图谱。",
+    link: { url: "https://obsidian.md/download", text: "下载 Obsidian" },
+    usage: [
+      "创建笔记：\"帮我写个笔记，记录今天的会议要点\"",
+      "搜索笔记：\"找一下关于 JWT 鉴权的笔记\"",
+      "归类整理：\"把这个笔记放到 Projects 文件夹\"",
+      "批量操作：\"把这几个文件移到 Archive\"",
+      "知识图谱：\"帮我建一个 Hub 页面，关联所有相关笔记\""
+    ],
+    tips: "Bobo 会自动记录你创建/修改过的笔记路径。下次说\"继续昨天的工作\"，它能直接定位到上次的文件。"
+  },
+  search: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/></svg>`,
+    title: "跨平台搜索",
+    desc: "一次搜索覆盖 Obsidian、Notion、邮件三个平台，结果按时间排列，自动去重。不需要记住信息存在哪里。",
+    usage: [
+      "统一搜索：\"搜一下关于项目架构的内容\"（同时搜 Obsidian + Notion + 邮件）",
+      "指定平台：\"在邮件里找上周的会议通知\"",
+      "Notion 搜索：\"在 Notion 里搜产品需求文档\"",
+      "邮件分析：\"分析一下最近一个月谁给我发邮件最多\""
+    ],
+    tips: "跨平台搜索会自动合并相同内容，按时间倒序排列，形成一条完整的时间线。"
+  },
+  code: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M14 4l-4 16"/></svg>`,
+    title: "代码开发",
+    desc: "Bobo 能搜索代码、精确修改、运行测试、创建 PR。整个开发流程在对话中完成，不需要离开终端。",
+    usage: [
+      "搜索代码：\"找到项目中所有使用 JWT 的地方\"",
+      "精确修改：\"把这个函数的超时时间从 30 秒改成 60 秒\"",
+      "运行测试：\"跑一下测试，看看有没有破坏已有功能\"",
+      "创建 PR：\"把当前分支的改动提交为 Pull Request\"",
+      "代码审查：\"审查这个 PR 的代码变更\""
+    ],
+    tips: "修改代码后 Bobo 会自动运行测试。如果测试失败，它会定位问题 → 修复 → 再次验证，直到全部通过。"
+  },
+  api: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><path d="M10 13l-3 3a3 3 0 0 0 4.24 4.24l3-3"/><path d="M14 11l3-3a3 3 0 0 0-4.24-4.24l-3 3"/><path d="M9 15l6-6"/></svg>`,
+    title: "连接任何 API",
+    desc: "注册一个 REST API 只需一条指令，无需写 Python 代码。Bobo 自动处理认证和参数替换。",
+    link: { url: "https://www.notion.so", text: "前往 Notion" },
+    usage: [
+      "注册 API：\"帮我注册 Notion API，这是我的 token: xxx\"",
+      "调用 API：\"在 Notion 里创建一个新页面，标题是'周报'\"",
+      "自定义端点：\"注册一个 Jira API，支持搜索和创建工单\"",
+      "查看已注册的 API：\"我注册了哪些 API？\""
+    ],
+    tips: "注册时只需要提供 base URL、认证方式和端点定义。Bobo 会记住所有配置，下次直接调用。"
+  },
+  schedule: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
+    title: "定时任务",
+    desc: "用自然语言设置定时任务，底层使用 cron 执行。支持每天、工作日、每小时重复。",
+    usage: [
+      "创建任务：\"每天早上 8 点提醒我写日报\"",
+      "工作日任务：\"每个工作日 9 点检查邮件\"",
+      "查看任务：\"看看我设置了哪些定时任务\"",
+      "删除任务：\"把早上的提醒取消掉\""
+    ],
+    tips: "定时任务通过系统 cron 执行，即使 Bobo 不在运行也会按时触发。"
+  },
+  memory: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>`,
+    title: "长期记忆",
+    desc: "告诉 Bobo 一次的事它会记住。下次对话自动注入相关记忆，无需重复说明。",
+    usage: [
+      "记住偏好：\"记住我喜欢喝冰美式\"",
+      "记住规则：\"以后修改代码都要用 diff 格式展示\"",
+      "记住工作文件：\"记住这个文件路径，下次继续\"",
+      "查看记忆：\"我告诉过你什么？\""
+    ],
+    tips: "记忆分两种：个人偏好（名字、语言、风格）和临时记忆（工作文件、当前任务）。每次对话开始时自动注入。"
+  },
+  privacy: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1.5"/></svg>`,
+    title: "隐私安全",
+    desc: "Bobo 的设计原则是隐私优先。所有数据只留在你的机器上，无遥测上报，无外部依赖。",
+    usage: [
+      "API Key 自动脱敏：配置文件中密钥自动隐藏，不会在对话中泄露",
+      "私密文件夹保护：指定文件夹不可读写，防止误操作",
+      "操作可撤销：删除、移动、重命名自动备份到回收站，随时可恢复",
+      "无遥测：不上报任何使用数据，不联网也能工作"
+    ],
+    tips: "所有代码和数据都在本地运行。即使配置了云 API（如 OpenAI），也只发送必要的请求内容。"
+  },
+  skills: {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="1.8" stroke-linecap="square"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a2 2 0 0 0 0-2.8l-1.4-1.4a2 2 0 0 0-2.8 0L14.7 6.3z"/><path d="M8 21l-4-4 9-9 4 4-9 9z"/></svg>`,
+    title: "可录制技能",
+    desc: "把常用操作录制成技能，下次一键执行。技能保存在本地 YAML 文件，可分享给团队。",
+    usage: [
+      "录制技能：\"开始教学\" → 执行一系列操作 → \"保存为 skill 代码审查\"",
+      "执行技能：\"执行技能 代码审查\"",
+      "查看技能：\"我有哪些技能？\"",
+      "分享技能：把 skills/ 目录下的 .yaml 文件发给队友"
+    ],
+    tips: "技能文件是纯 YAML 格式，可以手动编辑。保存在本地，不会提交到 GitHub（已被 gitignore）。"
+  }
+};
+
+function openModal(id) {
+  const data = featureDetails[id];
+  if (!data) return;
+  document.getElementById('modalIcon').innerHTML = data.icon;
+  document.getElementById('modalTitle').textContent = data.title;
+
+  let bodyHtml = `<p>${data.desc}</p>`;
+  if (data.link) {
+    bodyHtml += `<p style="margin-top:8px;"><a href="${data.link.url}" target="_blank" rel="noopener" class="modal-link">${data.link.text} ↗</a></p>`;
+  }
+  bodyHtml += `<div class="sub-title">使用方式</div><ul>`;
+  data.usage.forEach(u => { bodyHtml += `<li>${u}</li>`; });
+  bodyHtml += `</ul>`;
+  bodyHtml += `<div class="sub-title">提示</div>`;
+  bodyHtml += `<div class="highlight-box">${data.tips}</div>`;
+
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    closeModal();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+// Copy to clipboard
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '复制';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '复制';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// Scroll reveal — 每次进出都触发
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    } else {
+      entry.target.classList.remove('visible');
+    }
+  });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.reveal').forEach(el => {
+  revealObserver.observe(el);
+  // 初始检查：如果已经在视口内，立即触发
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) {
+    el.classList.add('visible');
+  }
+});
+
+// Auto-add copy buttons to all terminal-wrap
+document.querySelectorAll('.terminal-wrap').forEach(wrap => {
+  const terminal = wrap.querySelector('.terminal');
+  if (!terminal) return;
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = '复制';
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    // Get text content, strip prompt markers
+    let text = terminal.textContent.replace(/^\$\s+/gm, '').trim();
+    copyText(btn, text);
+  });
+  wrap.appendChild(btn);
+});
+
+/* ===== DEMO ANIMATION ===== */
+const DEMO_STEPS = [
+  { id: 'demo-step-0', delay: 500 },
+  { id: 'demo-step-1', delay: 1500 },
+  { id: 'demo-step-2', delay: 2000 },
+  { id: 'demo-step-3', delay: 2000 },
+  { id: 'demo-step-4', delay: 2500 },
+  { id: 'demo-step-5', delay: 2000 },
+];
+
+let demoRunning = false;
+let demoTimer = null;
+
+function runDemo() {
+  if (demoRunning) return;
+  demoRunning = true;
+  resetDemo();
+
+  const status = document.getElementById('demo-status');
+  status.textContent = '▶ 运行中...';
+  status.style.color = 'var(--accent)';
+
+  let stepIndex = 0;
+  function nextStep() {
+    if (stepIndex >= DEMO_STEPS.length) {
+      status.textContent = '✓ 演示完成';
+      status.style.color = '#1a7a3a';
+      demoRunning = false;
+      return;
+    }
+    const step = DEMO_STEPS[stepIndex];
+    const el = document.getElementById(step.id);
+    if (!el) { stepIndex++; nextStep(); return; }
+
+    // 特殊处理：第4步（出错）加 error-step 类
+    if (stepIndex === 3) {
+      el.classList.add('error-step');
+    } else {
+      el.classList.remove('error-step');
+    }
+
+    // 前一步标记为 done
+    if (stepIndex > 0) {
+      const prev = document.getElementById(DEMO_STEPS[stepIndex - 1].id);
+      if (prev) {
+        prev.classList.remove('active');
+        prev.classList.add('done');
+        // 显示箭头
+        const arrow = prev.querySelector('.demo-step-arrow');
+        if (arrow) arrow.classList.add('show');
+      }
+    }
+
+    el.classList.add('active');
+
+    // 更新状态文字
+    const titles = [
+      '等待用户输入...',
+      'LLM 正在分析任务...',
+      '调用工具搜索笔记...',
+      '⚠️ 邮件发送失败！',
+      'LLM 分析错误，尝试替代方案...',
+      '重试成功，任务完成！'
+    ];
+    if (stepIndex < titles.length) {
+      status.textContent = '▶ ' + titles[stepIndex];
+    }
+
+    stepIndex++;
+    demoTimer = setTimeout(nextStep, step.delay);
+  }
+
+  nextStep();
+}
+
+function resetDemo() {
+  if (demoTimer) {
+    clearTimeout(demoTimer);
+    demoTimer = null;
+  }
+  demoRunning = false;
+  const status = document.getElementById('demo-status');
+  if (status) {
+    status.textContent = '';
+    status.style.color = '';
+  }
+  DEMO_STEPS.forEach(s => {
+    const el = document.getElementById(s.id);
+    if (el) {
+      el.classList.remove('active', 'done', 'error-step');
+      const arrow = el.querySelector('.demo-step-arrow');
+      if (arrow) arrow.classList.remove('show');
+    }
+  });
+}
+</script>
+
+</main>
+</body>
+</html>

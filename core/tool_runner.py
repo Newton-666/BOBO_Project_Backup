@@ -198,7 +198,10 @@ class ToolRunnerMixin:
                             self._file_checkpoints[path] = _f.read()
                     except Exception:
                         pass
-            self._notify("tool_call", {"name": tool_name, "args": tool_args, "context": context, "status": "start"})
+            self._notify("tool_call", {
+                "name": tool_name, "args": tool_args, "context": context, "status": "start",
+                "todos": getattr(self, '_plan', [])  # plan tracking todos
+            })
             future = executor.submit(_execute_tool, tool_name, tool_args)
             future_map[future] = (tc, tool_name, tool_args)
         executor.shutdown(wait=False)

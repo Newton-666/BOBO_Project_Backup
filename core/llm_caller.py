@@ -2,6 +2,7 @@
 core/llm_caller.py - 修复版
 """
 
+import os
 import requests
 import json
 import time
@@ -68,12 +69,12 @@ def _classify_error(exception: Exception = None, status_code: int = None) -> tup
     return ("unknown", False, "未知错误")
 
 
-# 超时配置（秒）
-CONNECT_TIMEOUT = 10   # 建立连接的超时时间
-READ_TIMEOUT = 50      # 接收响应的超时时间
+# 超时配置（秒），可通过环境变量覆盖
+CONNECT_TIMEOUT = int(os.environ.get("BOBO_CONNECT_TIMEOUT", "10"))
+READ_TIMEOUT = int(os.environ.get("BOBO_READ_TIMEOUT", "50"))
 
 # 重试配置
-MAX_RETRIES = 2        # 最大重试次数（初始请求 + 2 次重试 = 共 3 次尝试）
+MAX_RETRIES = int(os.environ.get("BOBO_MAX_RETRIES", "2"))
 RETRY_DELAY_BASE = 1   # 基础等待时间（秒），指数退避
 
 

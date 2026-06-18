@@ -64,6 +64,9 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._checkpoints: list[dict] = []   # 对话回退快照
         self._interrupt_event: threading.Event | None = None
         self._recent_tool_calls: list[tuple[str, str]] = []  # (tool_name, args_key) for loop detection
+        self._plan: list[dict] = []  # [{id, content, status: pending|in_progress|completed|cancelled}]
+        self._plan_active: bool = False
+        self._plan_step: int = 0
 
     def _notify(self, event_type: str, data: dict):
         if self.callback:
@@ -87,7 +90,14 @@ class Engine(ContextMixin, ToolRunnerMixin):
 
 ## 核心原则
 
-- 用户让你做某事时，直接执行，不要只给计划或描述。完成后再报告结果。
+- 用户让你做简单的事时直接执行。如果任务复杂（多步骤、跨文件、不确定范围），先输出计划让用户确认，格式：
+  ```
+  计划:
+  1. xxx
+  2. xxx
+  ...
+  ```
+  用户确认后逐步执行。每完成一步自检："✅ 第1步完成，进入第2步"。
 - 如果工具调用失败，尝试替代方案，不要编造结果。诚实报告阻塞比伪造输出好。
 - 在完成任务之前，继续调用工具。不要提前停止。
 
@@ -148,13 +158,31 @@ class Engine(ContextMixin, ToolRunnerMixin):
 
 ## 代码修改工作流（重要）
 
-- 修改已有代码 → **先用 grep_code 定位**，再用 **edit_file 精确替换**
-  - edit_file 只能替换文件中恰好出现一次的文本
-  - 如果 old_string 不唯一，加上前后 1-2 行作为额外上下文
-  - grep_code 支持正则表达式，按文件类型过滤
-- 创建新文件 → file_operation（action="write"）+ auto-run（写完自动运行）
-- **修改代码后 → run_tests 验证**，测试失败 → grep_code 定位 → edit_file 修复 → run_tests 再次验证
-- 代码变更尽量用 ```diff 格式展示（+ 新增行，- 删除行）
+执行编码任务时，必须遵循 Perceive → Reason → Act → Verify 四步循环：
+
+1. **Perceive（感知）** — 先读相关文件，不猜代码存在什么
+   - 用 grep_code 搜索定位
+   - 用 read_local_file 读取
+   - 不重复读取同一文件
+   - 如果搜索结果超过 10 条，声明"我只检查了前 N 条"
+
+2. **Reason（推理）** — 动手前先想清楚
+   - 用自然语言简述：根因是什么、方案是什么
+   - 不要列举你排除了什么方案，直接说你要做什么
+   - 如果涉及删除/覆盖，先读取目标文件内容让用户确认
+
+3. **Act（执行）** — 做最小改动
+   - 修改已有代码 → edit_file（精确替换）
+     - edit_file 只能替换文件中恰好出现一次的文本
+     - 如果 old_string 不唯一，加上前后 1-2 行作为额外上下文
+   - 创建新文件 → file_operation（action="write"）
+   - 遵循 memory 中的输出格式要求（如 ```diff）
+   - 一次只做一件事，完成后再做下一件
+
+4. **Verify（验证）** — 确认改动有效
+   - 修改代码后 → run_tests
+   - 测试失败 → grep_code 定位 → edit_file 修复 → run_tests 再次验证
+   - 如果无法自动验证，声明"我无法验证，请手动检查 X"
 
 ## 工具使用
 
@@ -454,6 +482,9 @@ class Engine(ContextMixin, ToolRunnerMixin):
         except Exception:
             pass
 
+        # ── 注入计划进度（如果 LLM 之前输出了计划） ──
+        self._inject_plan_progress(messages)
+
         self._notify("thinking", {"phase": "calling_llm", "message": "正在思考..."})
 
         def _on_token(token: str):
@@ -487,6 +518,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._last_usage = response.get("usage", {})
         content, tool_calls = self._extract_response(response)
         content = self._remove_emojis(content)
+        self._maybe_parse_plan(content)
         return content, tool_calls
 
     def _append_to_history(self, role: str, content: str = None,
@@ -619,6 +651,68 @@ class Engine(ContextMixin, ToolRunnerMixin):
         for em in emojis:
             text = text.replace(em, '')
         return text
+
+    # ── Plan Tracking ───────────────────────────────────────────────────
+
+    def _maybe_parse_plan(self, content: str):
+        """Extract plan steps from LLM output. Also detect step completion markers."""
+        import re
+        text = content or ""
+        # Check for step completion markers like "✅ 第1步完成" → advance plan
+        completed = re.findall(r'[✅☑️]\s*第\s*(\d+)\s*步\s*(?:完成|已完|ok|done)', text, re.IGNORECASE)
+        if completed and self._plan_active and self._plan:
+            for n_str in completed:
+                n = int(n_str) - 1  # 0-indexed
+                if 0 <= n < len(self._plan):
+                    self._plan[n]["status"] = "completed"
+            next_step = max(n for n_str in completed for n in [int(n_str)]) + 1 - 1
+            if next_step < len(self._plan) - 1:
+                self._plan_step = next_step + 1
+                self._plan[self._plan_step]["status"] = "in_progress"
+            self._notify("todos.update", {"todos": self._plan, "plan_active": self._plan_active})
+
+        # Parse new plan from numbered list
+        steps = re.findall(r'(?:^|\n)\s*(?:\d+[.)]\s*|步骤\s*\d+[：:]\s*)(.+)', text, re.MULTILINE)
+        if len(steps) >= 2 and not self._plan_active:
+            self._plan = []
+            for i, step in enumerate(steps):
+                step_id = f"step_{i+1}"
+                self._plan.append({
+                    "id": step_id,
+                    "content": step.strip()[:200],
+                    "status": "pending"
+                })
+            self._plan[0]["status"] = "in_progress"
+            self._plan_step = 0
+            self._plan_active = True
+            self._notify("todos.update", {"todos": self._plan, "plan_active": True})
+
+    def _advance_plan_step(self, tool_name: str = ""):
+        """Mark current step complete and advance to next. Called after tool success."""
+        if not self._plan_active or self._plan_step >= len(self._plan):
+            return
+        self._plan[self._plan_step]["status"] = "completed"
+        self._plan_step += 1
+        if self._plan_step < len(self._plan):
+            self._plan[self._plan_step]["status"] = "in_progress"
+        else:
+            self._plan_active = False  # all done
+        self._notify("todos.update", {"todos": self._plan, "plan_active": self._plan_active})
+
+    def _inject_plan_progress(self, messages: list):
+        """Insert plan progress into messages for LLM to see."""
+        if not self._plan_active or not self._plan:
+            return
+        pending = sum(1 for s in self._plan if s["status"] == "pending")
+        done = sum(1 for s in self._plan if s["status"] == "completed")
+        current = self._plan[self._plan_step]["content"] if self._plan_step < len(self._plan) else "完成"
+        plan_msg = (
+            f"[当前进度] 计划共 {len(self._plan)} 步，已完成 {done}/{len(self._plan)} 步。\n"
+            f"当前步骤: {self._plan_step + 1}. {current}"
+        )
+        if self._plan_step < len(self._plan):
+            plan_msg += f"\n完成后，标记 '✅ 第{self._plan_step + 1}步完成' 并进入下一步。"
+        messages.insert(1, {"role": "system", "content": plan_msg})
 
     def _needs_verification(self, content: str) -> bool:
         """Check if the LLM's response needs verification."""
@@ -760,6 +854,9 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self.current_tool_round = 0
         self._tool_failures = {}
         self._recent_tool_calls = []
+        self._plan = []
+        self._plan_active = False
+        self._plan_step = 0
         self._file_checkpoints.clear()
         self._pending_content = None
         self._pending_tool_calls = None
