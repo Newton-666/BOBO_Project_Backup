@@ -62,6 +62,16 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 #send:disabled { opacity:0.3; }
 #debug { text-align:center; font-size:11px; color:#666; margin-top:8px; font-family:monospace; }
 ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
+/* Settings modal */
+#settings-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; }
+#settings-modal.open { display:flex; }
+#settings-panel { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:24px; width:420px; max-height:80vh; overflow-y:auto; }
+#settings-panel h2 { font-size:18px; margin-bottom:16px; }
+#settings-panel label { display:block; font-size:12px; color:var(--text2); margin:12px 0 4px; }
+#settings-panel input, #settings-panel select { width:100%; padding:8px 12px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font:inherit; margin-bottom:8px; }
+#settings-panel button { padding:8px 16px; border-radius:6px; border:none; cursor:pointer; font:inherit; margin-right:8px; }
+#settings-panel .btn-save { background:#5b9bd5; color:#fff; }
+#settings-panel .btn-close { background:var(--bg3); color:var(--text); }
 </style>
 </head>
 <body>
@@ -69,7 +79,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
   <div id="sidebar">
     <div id="sidebar-header"><button id="new-chat">+ 新对话</button></div>
     <div id="session-list"></div>
-    <div id="sidebar-footer"><span id="status-dot" class="dot red"></span><span id="status-text">Offline</span></div>
+    <div id="sidebar-footer"><span id="status-dot" class="dot red"></span><span id="status-text">Offline</span><span id="settings-icon" style="margin-left:auto;cursor:pointer;font-size:14px;" title="Settings">⚙</span></div>
   </div>
   <div id="main">
     <div id="welcome"><h1>Bobo</h1><p>你的个人 AI 助手</p></div>
@@ -377,6 +387,68 @@ sendEl.addEventListener('click', function() {
 inputEl.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendEl.click(); }
 });
+
+// ── Settings ────────────────────────────────────────────────────────────
+var settingsModal = document.getElementById('settings-modal');
+document.getElementById('settings-icon').addEventListener('click', async function() {
+  // Fetch current config
+  var setupResult = await call('setup.status', {});
+  var fullResult = await call('config.full', {});
+  var display = (fullResult.config && fullResult.config.display) || {};
+
+  document.getElementById('cfg-provider').value = setupResult.provider || 'deepseek';
+  document.getElementById('cfg-model').value = display.model || '';
+  document.getElementById('cfg-apikey').value = setupResult.provider_configured ? '(已配置)' : '';
+  document.getElementById('cfg-apikey').placeholder = setupResult.provider_configured ? '已配置，输入新key覆盖' : '输入API Key';
+  document.getElementById('cfg-obsidian').value = '';
+  settingsModal.classList.add('open');
+});
+
+document.getElementById('settings-close').addEventListener('click', function() {
+  settingsModal.classList.remove('open');
+});
+settingsModal.addEventListener('click', function(e) {
+  if (e.target === settingsModal) settingsModal.classList.remove('open');
+});
+
+document.getElementById('settings-save').addEventListener('click', async function() {
+  var provider = document.getElementById('cfg-provider').value;
+  var apiKey = document.getElementById('cfg-apikey').value.trim();
+  var obsidian = document.getElementById('cfg-obsidian').value.trim();
+
+  if (apiKey && apiKey !== '(已配置)') {
+    await call('setup.submit', { provider: provider, api_key: apiKey });
+    addStatus('API Key 已保存');
+  }
+  if (obsidian) {
+    addStatus('Obsidian vault 路径需要在 ~/.bobo/.env 中手动设置: OBSIDIAN_VAULT=' + obsidian);
+  }
+  settingsModal.classList.remove('open');
+});
 </script>
+<div id="settings-modal">
+  <div id="settings-panel">
+    <h2>⚙ Settings</h2>
+    <label>Provider</label>
+    <select id="cfg-provider">
+      <option value="deepseek">DeepSeek</option>
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="openrouter">OpenRouter</option>
+      <option value="google">Google</option>
+      <option value="ollama">Ollama (local)</option>
+    </select>
+    <label>Model</label>
+    <input id="cfg-model" type="text" placeholder="e.g. deepseek-chat" readonly />
+    <label>API Key</label>
+    <input id="cfg-apikey" type="password" placeholder="输入 API Key" />
+    <label>Obsidian Vault Path</label>
+    <input id="cfg-obsidian" type="text" placeholder="/path/to/vault (需手动在 ~/.bobo/.env 设置)" />
+    <div style="margin-top:16px;">
+      <button class="btn-save" id="settings-save">保存</button>
+      <button class="btn-close" id="settings-close">取消</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
