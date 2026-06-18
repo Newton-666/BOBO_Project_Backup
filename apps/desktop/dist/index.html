@@ -570,10 +570,30 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── Settings ────────────────────────────────────────────────────────────
+var modelPresets = {
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+  anthropic: ['claude-sonnet-4-20250514', 'claude-haiku-3-20240307'],
+  openrouter: ['openai/gpt-4o', 'anthropic/claude-sonnet-4', 'google/gemini-2.0-flash'],
+  google: ['gemini-2.0-flash', 'gemini-2.0-pro'],
+  ollama: ['llama3', 'mistral', 'qwen2.5']
+};
+function updateModelOptions() {
+  var p = document.getElementById('cfg-provider').value;
+  var list = document.getElementById('cfg-model-list');
+  var input = document.getElementById('cfg-model');
+  list.innerHTML = '';
+  (modelPresets[p] || []).forEach(function(m) {
+    var opt = document.createElement('option'); opt.value = m; list.appendChild(opt);
+  });
+  if (modelPresets[p] && modelPresets[p].length) input.value = modelPresets[p][0];
+}
+
 document.getElementById('settings-icon').onclick = function() {
   call('setup.status', {}).then(function(r1) {
     document.getElementById('cfg-provider').value = (r1 && r1.provider) || 'deepseek';
     document.getElementById('cfg-apikey').placeholder = (r1 && r1.provider_configured) ? '已配置' : '输入API Key';
+    updateModelOptions();
   });
   document.getElementById('settings-modal').classList.add('open');
 };
@@ -581,34 +601,53 @@ document.getElementById('settings-close').onclick = function() {
   document.getElementById('settings-modal').classList.remove('open');
 };
 document.getElementById('settings-save').onclick = function() {
+  var provider = document.getElementById('cfg-provider').value;
+  var model = document.getElementById('cfg-model').value.trim();
   var key = document.getElementById('cfg-apikey').value.trim();
+  var obsidian = document.getElementById('cfg-obsidian').value.trim();
+  var status = document.getElementById('cfg-status');
+  var done = [];
+
   if (key) {
-    call('setup.submit', { provider: document.getElementById('cfg-provider').value, api_key: key });
-    addStatus('Saved');
+    call('setup.submit', { provider: provider, api_key: key });
+    done.push('API Key');
   }
-  document.getElementById('settings-modal').classList.remove('open');
+  if (obsidian) {
+    done.push('Obsidian vault (需手动在~/.bobo/.env 中设置 OBSIDIAN_VAULT=' + obsidian + ')');
+  }
+  if (model) {
+    done.push('Model: ' + model + ' (需手动在~/.bobo/.env 中设置 API_MODEL_NAME=' + model + ')');
+  }
+  status.textContent = done.length ? '✅ ' + done.join(', ') + ' 已保存' : '未做更改';
+  setTimeout(function() { document.getElementById('settings-modal').classList.remove('open'); }, 1200);
 };
 </script>
 <div id="settings-modal">
   <div id="settings-panel">
     <h2>⚙ Settings</h2>
     <label>Provider</label>
-    <select id="cfg-provider">
+    <select id="cfg-provider" onchange="updateModelOptions()">
       <option value="deepseek">DeepSeek</option>
       <option value="openai">OpenAI</option>
       <option value="anthropic">Anthropic</option>
       <option value="openrouter">OpenRouter</option>
-      <option value="google">Google</option>
-      <option value="ollama">Ollama (local)</option>
+      <option value="google">Google Gemini</option>
+      <option value="ollama">Ollama (本地)</option>
     </select>
-    <label>Model</label>
-    <input id="cfg-model" type="text" placeholder="e.g. deepseek-chat" readonly />
+    <label>Model <span style="font-weight:400;color:var(--text-muted);font-size:11px;">（可编辑）</span></label>
+    <input id="cfg-model" type="text" list="cfg-model-list" placeholder="e.g. deepseek-chat" />
+    <datalist id="cfg-model-list"></datalist>
     <label>API Key</label>
     <input id="cfg-apikey" type="password" placeholder="输入 API Key" />
-    <label>Obsidian Vault Path</label>
-    <input id="cfg-obsidian" type="text" placeholder="/path/to/vault (需手动在 ~/.bobo/.env 设置)" />
+    <div style="display:flex;gap:12px;">
+      <div style="flex:1;"><label>Max Steps</label><input id="cfg-maxsteps" type="number" value="12" min="3" max="30" /></div>
+      <div style="flex:1;"><label>Timeout (s)</label><input id="cfg-timeout" type="number" value="60" min="30" max="300" /></div>
+    </div>
+    <label>Obsidian Vault</label>
+    <input id="cfg-obsidian" type="text" placeholder="/path/to/vault" />
+    <div id="cfg-status" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
     <div style="margin-top:16px;">
-      <button class="btn-save" id="settings-save" onclick="var k=document.getElementById('cfg-apikey').value.trim();if(k){call('setup.submit',{provider:document.getElementById('cfg-provider').value,api_key:k});addStatus('Saved');}this.closest('#settings-modal').classList.remove('open')">保存</button>
+      <button class="btn-save" id="settings-save">保存</button>
       <button class="btn-close" id="settings-close" onclick="this.closest('#settings-modal').classList.remove('open')">取消</button>
     </div>
   </div>
