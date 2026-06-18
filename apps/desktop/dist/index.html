@@ -455,11 +455,14 @@ on('message.delta', function(data) {
 });
 on('message.complete', function(data) {
   messaging = false; debug('Connected ✓');
-  if (thinkBoxEl) { thinkBoxEl.remove(); thinkBoxEl = null; }
+  if (thinkBoxEl) { thinkBoxEl.style.opacity = '0.5'; }
   thinkText = '';
   if (streamingId) { var old = document.getElementById(streamingId); if (old) old.remove(); streamingId = null; }
   var t = data ? data.final_text || '' : '';
-  if (t && t.trim()) addMsg('bobo', t, 'msg-' + Date.now());
+  if (t && t.trim()) {
+    if (thinkBoxEl) { thinkBoxEl.remove(); thinkBoxEl = null; }
+    addMsg('bobo', t, 'msg-' + Date.now());
+  }
   loadSessions();
 });
 on('tool.start', function(data) {
