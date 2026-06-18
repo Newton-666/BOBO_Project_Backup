@@ -19,10 +19,14 @@ class BrowserGateway {
       this.ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data)
-          if (msg.method) {
-            const handler = this.handlers.get(msg.method)
-            if (handler) handler(msg.params || {})
-          } else if (msg.id) {
+          // Events: {method: "event", params: {type: "gateway.ready", payload: ...}}
+          const eventType = msg.params?.type || msg.method
+          const handler = this.handlers.get(eventType)
+          if (handler) {
+            handler(msg.params?.payload || msg.params || {})
+            return
+          }
+          if (msg.id) {
             const resolve = this.pending.get(msg.id)
             if (resolve) {
               this.pending.delete(msg.id)
