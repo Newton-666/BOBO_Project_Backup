@@ -269,6 +269,7 @@ function addMsg(role, text, id, append) {
   chatEl.appendChild(div); chatEl.scrollTop = chatEl.scrollHeight;
 }
 var toolResults = {};
+var toolIdCounter = 0;
 
 function addTool(name, context, toolId) {
   welcomeEl.style.display = 'none';
@@ -297,8 +298,11 @@ function addTool(name, context, toolId) {
   };
   if (friendlyMap[name]) friendly = friendlyMap[name];
 
+  toolIdCounter++;
+  var uniqueId = toolId + '-' + toolIdCounter;
   var div = document.createElement('div'); div.className = 'tool';
-  div.id = 'tool-' + toolId;
+  div.id = 'tool-' + uniqueId;
+  div.setAttribute('data-tool', toolId);
   div.innerHTML = '<span class="dot">●</span>' +
     '<span class="tool-name">' + esc(friendly) + '</span>' +
     (context && context !== name ? '<span class="tool-context">' + esc(context) + '</span>' : '') +
@@ -313,7 +317,13 @@ function addTool(name, context, toolId) {
 }
 
 function updateToolResult(toolId, resultText, error) {
-  var div = document.getElementById('tool-' + toolId);
+  // Find the first still-running entry for this tool name
+  var allEntries = chatEl.querySelectorAll('.tool[data-tool="' + toolId + '"]');
+  var div = null;
+  for (var i = 0; i < allEntries.length; i++) {
+    var s = allEntries[i].querySelector('.tool-status');
+    if (s && s.textContent === 'running') { div = allEntries[i]; break; }
+  }
   if (!div) return;
   var dot = div.querySelector('.dot');
   var statusEl = div.querySelector('.tool-status');
@@ -475,28 +485,31 @@ on('message.start', function() {
 
 on('message.delta', function(data) {
   var t = data ? data.text || '' : '';
-  if (!toolsCalledThisRound) {
+  if (t && thinkBoxEl) {
     thinkText += t;
-    var txt = thinkBoxEl ? thinkBoxEl.querySelector('.think-text') : null;
+    var txt = thinkBoxEl.querySelector('.think-text');
     if (txt) { txt.textContent = thinkText; chatEl.scrollTop = chatEl.scrollHeight; }
-  } else {
-    if (!streamingId) streamingId = 'stream-' + Date.now();
-    addMsg('bobo', t, streamingId, true);
   }
 });
 on('message.complete', function(data) {
   messaging = false; debug('Connected ✓');
-  if (thinkBoxEl) {
-    if (thinkBoxEl._warnTimer) clearTimeout(thinkBoxEl._warnTimer);
-    if (thinkBoxEl._killTimer) clearTimeout(thinkBoxEl._killTimer);
-    thinkBoxEl.style.opacity = '0.5';
-  }
+  var toolsWereCalled = toolIdCounter > 0;
   thinkText = '';
   if (streamingId) { var old = document.getElementById(streamingId); if (old) old.remove(); streamingId = null; }
+  toolIdCounter = 0;
   var t = data ? data.final_text || '' : '';
   if (t && t.trim()) {
     if (thinkBoxEl) { thinkBoxEl.remove(); thinkBoxEl = null; }
     addMsg('bobo', t, 'msg-' + Date.now());
+  } else if (toolsWereCalled && thinkBoxEl) {
+    // All tool calls done with no final text — clean up think box
+    if (thinkBoxEl._warnTimer) clearTimeout(thinkBoxEl._warnTimer);
+    if (thinkBoxEl._killTimer) clearTimeout(thinkBoxEl._killTimer);
+    thinkBoxEl.remove(); thinkBoxEl = null;
+  } else if (thinkBoxEl) {
+    if (thinkBoxEl._warnTimer) clearTimeout(thinkBoxEl._warnTimer);
+    if (thinkBoxEl._killTimer) clearTimeout(thinkBoxEl._killTimer);
+    thinkBoxEl.style.opacity = '0.5';
   }
   loadSessions();
 });
