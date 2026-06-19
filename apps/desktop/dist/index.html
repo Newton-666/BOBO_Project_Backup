@@ -25,9 +25,9 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 #sidebar-footer .dot.red { background:#f44336; }
 /* Main */
 #main { flex:1; display:flex; flex-direction:column; max-width:800px; margin:0 auto; width:100%; }
-#welcome { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
-#welcome h1 { font-size:32px; font-weight:600; }
-#welcome p { color:var(--text2); }
+#welcome { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+#welcome-logo { font-family:'SF Mono',Monaco,Menlo,monospace; font-size:13px; line-height:1.3; color:#e8913a; margin:0; text-align:center; letter-spacing:1px; }
+.welcome-sub { color:var(--text-muted); font-size:13px; margin-top:4px; }
 #chat { flex:1; overflow-y:auto; padding:24px 16px; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 .msg, .tool, .think-box.show, .status { animation:fadeIn 0.25s ease-out; }
@@ -112,7 +112,15 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
     <div id="sidebar-footer"><span id="status-dot" class="dot red"></span><span id="status-text">Offline</span><button id="settings-icon" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:16px;color:inherit;" title="Settings">⚙</button></div>
   </div>
   <div id="main">
-    <div id="welcome"><h1>Bobo</h1><p>你的个人 AI 助手</p></div>
+    <div id="welcome">
+      <pre id="welcome-logo">██████╗  ██████╗ ██████╗  ██████╗ 
+██╔══██╗██╔═══██╗██╔══██╗██╔═══██╗
+██████╔╝██║   ██║██████╔╝██║   ██║
+██╔══██╗██║   ██║██╔══██╗██║   ██║
+██████╔╝╚██████╔╝██████╔╝╚██████╔╝
+╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ </pre>
+      <p class="welcome-sub">你的个人 AI 助手</p>
+    </div>
     <div id="debug" style="text-align:center;font-size:11px;color:#666;font-family:monospace;padding:4px;">Starting...</div>
     <div id="chat"></div>
     <div id="input-box">
