@@ -19,6 +19,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system, Blink
 .session-item.active { background:var(--bg3); color:var(--text); }
 .session-item .del { visibility:hidden; cursor:pointer; color:#f44336; font-size:14px; margin-left:6px; flex-shrink:0; }
 .session-item:hover .del { visibility:visible; }
+.session-item .re { visibility:hidden; }
+.session-item:hover .re { visibility:visible; }
 #sidebar-footer { padding:12px; font-size:12px; color:var(--text2); border-top:1px solid var(--border); display:flex; align-items:center; gap:8px; }
 #sidebar-footer .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
 #sidebar-footer .dot.green { background:var(--green); }
@@ -505,10 +507,11 @@ function renderSessions(filter) {
     var div = document.createElement('div'); div.className = 'session-item' + (s.id===currentSessionId?' active':'');
     var span = document.createElement('span'); span.textContent = s.title || s.id; span.style.overflow='hidden'; span.style.textOverflow='ellipsis';
     span.onclick = function() { loadSession(s.id); };
-    span.ondblclick = function() { startRename(s, span); };
+    var re = document.createElement('span'); re.textContent = '✎'; re.className = 're'; re.style.cssText = 'cursor:pointer;color:var(--text-muted);font-size:12px;margin-left:4px;flex-shrink:0;';
+    re.onclick = function(e) { e.stopPropagation(); startRename(s, span); };
     var del = document.createElement('span'); del.className = 'del'; del.textContent = '✕';
     del.onclick = function(e) { e.stopPropagation(); deleteSession(s.id); };
-    div.appendChild(span); div.appendChild(del);
+    div.appendChild(span); div.appendChild(re); div.appendChild(del);
     sessionListEl.appendChild(div);
   });
 }
