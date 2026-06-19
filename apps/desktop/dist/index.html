@@ -327,7 +327,7 @@ function addTool(name, context, toolId) {
   chatEl.appendChild(div); chatEl.scrollTop = chatEl.scrollHeight;
 }
 
-function updateToolResult(toolId, resultText, error) {
+function updateToolResult(toolId, resultText, error, duration) {
   // Find the first still-running entry for this tool name
   var allEntries = chatEl.querySelectorAll('.tool[data-tool="' + toolId + '"]');
   var div = null;
@@ -349,7 +349,7 @@ function updateToolResult(toolId, resultText, error) {
     resultEl.textContent = error.substring(0, 200);
   } else {
     dot.className = 'dot done';
-    statusEl.textContent = 'done';
+    statusEl.textContent = duration ? 'done (' + duration.toFixed(1) + 's)' : 'done';
     statusEl.style.color = '#50a14f';
     if (resultText) {
       var preview = resultText.split('\n').filter(function(l){return l.trim();})[0] || '';
@@ -435,17 +435,22 @@ async function newChat() {
 connect();
 
 on('gateway.ready', async function() {
-  debug('Connected ✓'); setConnected(true);
+  debug('已连接，恢复会话...'); setConnected(true);
   await loadSessions();
   if (sessions.length > 0) {
     currentSessionId = sessions[0].id;
-    call('session.activate', { session_id: sessions[0].id });
+    // Retry session.activate in case backend just restarted
+    for (var _a = 0; _a < 3; _a++) {
+      var _r = await call('session.activate', { session_id: sessions[0].id });
+      if (_r && !_r.error) break;
+      if (_a < 2) await new Promise(function(r2) { setTimeout(r2, 1000); });
+    }
     renderSessions();
   } else {
     // First-time user: auto-create a session
     await newChat();
   }
-  inputEl.focus();
+  debug('Ready'); inputEl.focus();
 });
 
 var streamingId = null;
@@ -533,7 +538,7 @@ on('tool.start', function(data) {
 });
 on('tool.complete', function(data) {
   var tid = data ? data.tool_id || '' : '';
-  if (tid) updateToolResult(tid, data ? data.result_text || '' : '', data ? data.error || '' : '');
+  if (tid) updateToolResult(tid, data ? data.result_text || '' : '', data ? data.error || '' : '', data ? data.duration || 0 : 0);
 });
 on('status.update', function(data) {
   var t = data ? data.text || '' : ''; if (!t) return;

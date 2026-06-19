@@ -77,7 +77,11 @@ function startBackend() {
       console.log(`[bobo-desktop] Restarting backend in ${delay}ms (attempt ${backendRestartCount}/${MAX_BACKEND_RESTARTS})`)
       setTimeout(() => startBackend(), delay)
     } else if (code !== 0) {
-      console.error(`[bobo-desktop] Backend crashed ${MAX_BACKEND_RESTARTS} times, giving up`)
+      console.error(`[bobo-desktop] Backend crashed ${MAX_BACKEND_RESTARTS} times, retrying in 60s`)
+      setTimeout(() => {
+        backendRestartCount = 0
+        startBackend()
+      }, 60000)
     }
   })
 
