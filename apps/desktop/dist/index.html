@@ -146,7 +146,13 @@ function call(m, p) {
 }
 function sendPrompt(text) {
   if (!currentSessionId || !window.boboAPI) { debug('Cannot send: no session or API'); return; }
-  debug('Sent ✓ (sid=' + currentSessionId.substring(0,12) + ')');
+  debug('Sent ✓');
+  // Timeout: if backend doesn't respond within 15s, notify user
+  if (sendTimeoutId) clearTimeout(sendTimeoutId);
+  sendTimeoutId = setTimeout(function() {
+    addStatus('⚠ 消息已发送但后端未响应，请检查连接状态');
+    sendTimeoutId = null;
+  }, 15000);
   window.boboAPI.send({ jsonrpc:'2.0', id:'prompt-'+(++reqId), method:'prompt.submit', params:{ session_id:currentSessionId, text:text } });
 }
 
@@ -161,6 +167,7 @@ var statusDot = document.getElementById('status-dot');
 var statusText = document.getElementById('status-text');
 var messaging = false;
 var sessions = [];
+var sendTimeoutId = null;
 
 function debug(msg) { debugEl.textContent = '[' + msg + ']'; }
 function setConnected(c) {
@@ -475,6 +482,7 @@ function stopThinking() {
 }
 
 on('message.start', function() {
+  if (sendTimeoutId) { clearTimeout(sendTimeoutId); sendTimeoutId = null; }
   messaging = true; debug('Receiving...');
   thinkText = '';
   toolsCalledThisRound = false;
@@ -595,7 +603,7 @@ function handleSlash(cmd) {
 }
 
 sendEl.addEventListener('click', function() {
-  var text = inputEl.value.trim(); if (!text || !connected) return;
+  var text = inputEl.value.trim(); if (!text || !connected || messaging) return;
   inputEl.value = '';
   if (text.startsWith('/')) {
     if (handleSlash(text.slice(1))) return;
@@ -621,8 +629,15 @@ document.getElementById('settings-close').onclick = function() {
 document.getElementById('settings-save').onclick = function() {
   var key = document.getElementById('cfg-apikey').value.trim();
   if (key) {
-    call('setup.submit', { provider: document.getElementById('cfg-provider').value, api_key: key });
-    addStatus('Saved');
+    call('setup.submit', { provider: document.getElementById('cfg-provider').value, api_key: key }).then(function(res) {
+      if (res && res.ok === false) {
+        addStatus('设置失败: ' + (res.error || '未知错误'));
+      } else {
+        addStatus('Saved');
+      }
+    });
+  } else {
+    addStatus('请输入 API Key');
   }
   document.getElementById('settings-modal').classList.remove('open');
 };

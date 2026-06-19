@@ -135,6 +135,9 @@ function stopBackend() {
 // ── Window management ──────────────────────────────────────────────────
 
 function createWindow() {
+  // Reset backend restart counter for fresh start
+  backendRestartCount = 0
+
   mainWindow = new BrowserWindow({
     width: 900,
     height: 680,
