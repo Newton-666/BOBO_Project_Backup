@@ -316,10 +316,10 @@ function md(s) {
   });
   var tables = [];
   s = s.replace(/((?:\\|.+(?:\\r?\\n|$))+)/gm, function(block) {
-    var lines = block.trim().split(/\\r?\\n/);
+    var lines = block.trim().split(/\r?\n/);
     if (lines.length < 2) return block;
-    var sepLine = lines[1].replace(/\\s/g, '');
-    var hasDivider = /^\\|?[-:]+\\|?$/.test(sepLine);
+    var sepLine = lines[1].replace(/\s/g, '');
+    var hasDivider = /^\|?[-:]+\|?$/.test(sepLine);
     if (hasDivider) {
       // Standard markdown table with header/divider/data
       var h = '<table><thead><tr>' + lines[0].split('|').filter(function(c){return c.trim();}).map(function(c){return '<th>'+esc(c.trim())+'</th>';}).join('') + '</tr></thead><tbody>';
