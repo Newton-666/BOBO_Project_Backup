@@ -142,18 +142,6 @@ class ContextMixin:
                 "content": f"[对话历史摘要]:\n{summary}"
             })
 
-        # 压缩后注入最近读过的文件摘要
-        if hasattr(self, '_read_files') and self._read_files:
-            recent = list(self._read_files.items())[-3:]
-            lines = ["[最近读过的文件]:", ""]
-            for fpath, preview in recent:
-                short = preview[:100].replace('\n', ' ').strip()
-                lines.append(f"  {fpath}: {short}...")
-            self.history.insert(0, {
-                "role": "system",
-                "content": "\n".join(lines)
-            })
-
     def _classify_query(self) -> Optional[str]:
         """根据当前用户输入判断查询类别，返回类别名称或 None（使用全部工具）。"""
         text = (self.current_user_input or "").lower()

@@ -249,6 +249,19 @@ class Engine(ContextMixin, ToolRunnerMixin):
             return None
         return None
 
+    def _compress_changelog(self):
+        """超过 20 条时压缩最早的条目为摘要"""
+        if not hasattr(self, '_change_log') or len(self._change_log) <= 20:
+            return
+        keep = self._change_log[-10:]
+        old = self._change_log[:-10]
+        descs = '; '.join(m['desc'] for m in old if m.get('desc'))
+        if len(descs) > 300:
+            descs = descs[:200] + f"...（共 {len(old)} 次）"
+        self._change_log = [{"ts": 0, "desc": f"[历史改动]: {descs}"}] + keep
+        if len(self._change_log) > 50:
+            self._change_log = self._change_log[-20:]
+
     def _check_guards(self) -> bool:
         # 循环检测：同一搜索类工具调用超过3次，注入停止提示
         if len(self._recent_tool_calls) >= 3:
@@ -495,6 +508,23 @@ class Engine(ContextMixin, ToolRunnerMixin):
                         })
         except Exception:
             pass
+
+        # 注入改动日志和已读文件摘要
+        if hasattr(self, '_change_log') and self._change_log:
+            items = self._change_log[-5:]
+            lines = ["[本会话的改动记录]:", ""]
+            for it in items:
+                lines.append(f"  {it['desc']}")
+            if len(self._change_log) > 5:
+                lines.append(f"  ...（共 {len(self._change_log)} 次改动）")
+            messages.insert(1, {"role": "system", "content": "\n".join(lines)})
+        if hasattr(self, '_read_files') and self._read_files:
+            items = list(self._read_files.items())[-3:]
+            lines = ["[最近读过的文件]:", ""]
+            for fpath, preview in items:
+                short = preview[:120].replace('\n', ' ').strip()
+                lines.append(f"  {fpath}: {short}...")
+            messages.insert(1, {"role": "system", "content": "\n".join(lines)})
 
         self._notify("thinking", {"phase": "calling_llm", "message": "正在思考..."})
 
@@ -800,6 +830,24 @@ class Engine(ContextMixin, ToolRunnerMixin):
                     args = str(tc.get("function", {}).get("arguments", ""))[:60]
                     self._recent_tool_calls.append((name, args))
                 self._recent_tool_calls = self._recent_tool_calls[-12:]
+            # 记录改动日志
+            if name in ("edit_file", "file_operation"):
+                try:
+                    import json as _je
+                    a = _je.loads(tc.get("function", {}).get("arguments", "{}"))
+                    fpath = a.get('file_path', '') or a.get('path', '')
+                    if fpath:
+                        if not hasattr(self, '_change_log'):
+                            self._change_log = []
+                        if name == "edit_file":
+                            old = a.get("old_string", "")[:40]
+                            new = a.get("new_string", "")[:40]
+                            desc = f"{fpath}: {old} → {new}"
+                        else:
+                            desc = f"{fpath}（{a.get('action','write')}）"
+                        self._change_log.append({"ts": time.time(), "desc": desc})
+                except Exception:
+                    pass
             # 记录已读文件，便于上下文压缩后恢复
             if name == "read_local_file":
                 try:
