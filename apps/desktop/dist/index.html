@@ -682,27 +682,33 @@ on('notes.tree', function(payload) {
 on('notes.changed', function(payload) {
   if (!payload || !payload.file) return;
   var diff = (payload.diff || '').substring(0, 3000);
-  if (!diff) return;
+  var result = (payload.result || '').substring(0, 2000);
   // Open notes plugin and show diff
   var p = document.getElementById('right-panel');
   if (!p.classList.contains('open')) {
     openPlugin('notes');
   }
   var content = document.getElementById('right-content');
-  // Render diff with +/- highlighting
-  var lines = diff.split('\n');
   var html = '<div style="margin-bottom:8px;font-size:12px;color:var(--text2);">📝 ' + esc(payload.file) + '</div>';
-  lines.forEach(function(l) {
-    if (l.startsWith('+') && !l.startsWith('+++')) {
-      html += '<div style="background:rgba(76,175,80,0.08);color:#2e7d32;padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
-    } else if (l.startsWith('-') && !l.startsWith('---')) {
-      html += '<div style="background:rgba(244,67,54,0.08);color:#c62828;padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
-    } else if (l.startsWith('@@')) {
-      html += '<div style="color:var(--text-muted);padding:1px 6px;font-family:monospace;font-size:10px;">' + esc(l) + '</div>';
-    } else {
-      html += '<div style="color:var(--text-muted);padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
-    }
-  });
+  if (diff) {
+    // Render git diff with +/- highlighting
+    var lines = diff.split('\n');
+    lines.forEach(function(l) {
+      if (l.startsWith('+') && !l.startsWith('+++')) {
+        html += '<div style="background:rgba(76,175,80,0.08);color:#2e7d32;padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
+      } else if (l.startsWith('-') && !l.startsWith('---')) {
+        html += '<div style="background:rgba(244,67,54,0.08);color:#c62828;padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
+      } else if (l.startsWith('@@')) {
+        html += '<div style="color:var(--text-muted);padding:1px 6px;font-family:monospace;font-size:10px;">' + esc(l) + '</div>';
+      } else {
+        html += '<div style="color:var(--text-muted);padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
+      }
+    });
+  } else if (result) {
+    html += '<div style="padding:6px;background:rgba(76,175,80,0.06);border-radius:4px;color:var(--text2);font-size:12px;white-space:pre-wrap;">' + esc(result) + '</div>';
+  } else {
+    html += '<div style="color:var(--text-muted);font-size:11px;">文件已更新（无 diff 信息）</div>';
+  }
   content.innerHTML = '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">📄 变更预览</div>' + html;
 });
 

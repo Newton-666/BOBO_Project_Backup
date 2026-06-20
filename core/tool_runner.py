@@ -263,24 +263,29 @@ class ToolRunnerMixin:
                         break
 
             # Git diff 捕获
-            if tool_name in ("file_writer", "code_execution", "edit_file") and not result.startswith("错误"):
+            if tool_name in ("file_writer", "code_execution", "edit_file", "write_obsidian", "append_obsidian") and not result.startswith("错误"):
                 try:
                     cwd = os.getcwd()
                     diff = subprocess.run(
                         ["git", "diff"], capture_output=True, text=True, cwd=cwd, timeout=3
                     )
+                    diff_text = ""
                     if diff.returncode == 0 and diff.stdout.strip():
                         self._pending_diff = diff.stdout.strip()
-                        # 通知桌面端：文件已修改
-                        if hasattr(self, '_notify'):
-                            fpath = ""
-                            if isinstance(tool_args, dict):
-                                fpath = tool_args.get("file_path", "") or tool_args.get("path", "") or ""
-                            self._notify("notes.changed", {
-                                "file": fpath,
-                                "diff": diff.stdout.strip()[:3000],
-                                "tool": tool_name
-                            })
+                        diff_text = diff.stdout.strip()[:3000]
+                    # 通知桌面端：文件已修改
+                    if hasattr(self, '_notify'):
+                        fpath = ""
+                        if isinstance(tool_args, dict):
+                            fpath = tool_args.get("file_path", "") or tool_args.get("path", "") or ""
+                        if not fpath and tool_name in ("write_obsidian", "append_obsidian"):
+                            fpath = tool_args.get("filepath", "") or tool_args.get("title", "")
+                        self._notify("notes.changed", {
+                            "file": fpath,
+                            "diff": diff_text,
+                            "tool": tool_name,
+                            "result": str(result)[:2000] if not diff_text else ""
+                        })
                 except Exception:
                     pass
 
