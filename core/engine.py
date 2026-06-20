@@ -28,7 +28,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
     STATE_DONE = "done"
     STATE_ERROR = "error"
 
-    MAX_STEPS = 30
+    MAX_STEPS = 50
 
     def __init__(self, llm_caller, tool_executor=None, callback: Callable = None,
                  confirm_callback: Callable = None, test_mode: bool = False):
@@ -287,11 +287,11 @@ class Engine(ContextMixin, ToolRunnerMixin):
                     self._recent_tool_calls.clear()
                     return False
         # 步骤预算渐进提醒
-        if self.current_depth == 20:
-            self._append_to_history("user", "提示: 你已执行 20 步。如果已有足够信息，请直接生成最终回复，不需要再调用工具。")
+        if self.current_depth == 35:
+            self._append_to_history("user", "提示: 你已执行 35 步。如果已有足够信息，请直接生成最终回复，不需要再调用工具。")
             self.current_depth += 1
             return False
-        if self.current_depth == 25:
+        if self.current_depth == 45:
             self._append_to_history("user", "提示: 还剩 5 步，请尽快完成当前操作并生成回复。")
             self.current_depth += 1
             return False
