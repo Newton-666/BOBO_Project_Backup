@@ -277,12 +277,28 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 self.current_depth += 1
                 self._recent_tool_calls.clear()
                 return False
-            # 同一工具重复调用（pip install 连续失败等）
-            for name, count in name_count.items():
-                if count >= 3:
+            # 按目标检测重复：提取工具调用的搜索目标（文件路径/搜索模式）
+            # 不依赖工具名，LLM 换工具名也能检测到
+            import json as _jl
+            targets = []
+            for name, arg in self._recent_tool_calls[-8:]:
+                desc = arg[:40]
+                if name in ("read_local_file", "edit_file", "file_operation"):
+                    try:
+                        a = _jl.loads(arg) if isinstance(arg, str) else arg
+                        desc = a.get("file_path", "") or a.get("path", "") or desc[:30]
+                    except Exception:
+                        pass
+                targets.append(desc)
+            target_counts = {}
+            for t in targets:
+                target_counts[t] = target_counts.get(t, 0) + 1
+            # 如果有 >=3 次指向同一个文件或搜索内容
+            for t, c in target_counts.items():
+                if t and c >= 3:
                     self._append_to_history("user",
-                        f"注意: {name} 已连续调用 {count} 次。如果之前的结果不理想，"
-                        f"请换一种策略或直接告知用户无法完成，不要重复尝试相同方法。")
+                        f"注意: 你已多次 [{t}] 相关操作（{c} 次）。如果之前的结果不理想，"
+                        f"请换一种策略或直接告知用户无法完成，不要重复尝试相同方向。")
                     self.current_depth += 1
                     self._recent_tool_calls.clear()
                     return False

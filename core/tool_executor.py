@@ -9,6 +9,10 @@ from tools import TOOL_FUNCTIONS
 TOOL_TIMEOUT = 30
 _executor = ThreadPoolExecutor(max_workers=4)
 
+# 命令结果缓存：key=(tool_name, args[:200]) → (timestamp, result)
+_COMMAND_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
+_CACHE_TTL = 30  # 缓存有效期（秒）
+
 
 def execute_tool(tool_name: str, arguments: dict) -> str:
     """执行工具"""
@@ -22,12 +26,29 @@ def execute_tool(tool_name: str, arguments: dict) -> str:
 
     start_time = time.time()
 
+    # 命令缓存：相同的工具+参数在 30s 内返回缓存结果
+    if tool_name in ("execute_terminal", "git_status", "grep_code", "search_code"):
+        arg_key = str(arguments)[:200]
+        cache_key = (tool_name, arg_key)
+        cached = _COMMAND_CACHE.get(cache_key)
+        if cached and time.time() - cached[0] < _CACHE_TTL:
+            return f"{cached[1]}\\n（缓存结果，{_CACHE_TTL}s 内有效）"
+
     try:
         func = TOOL_FUNCTIONS[tool_name]
         future = _executor.submit(func, **arguments)
         result = future.result(timeout=TOOL_TIMEOUT)
         duration = time.time() - start_time
         output = str(result) if result else "执行成功"
+        # 写入缓存
+        if tool_name in ("execute_terminal", "git_status", "grep_code", "search_code"):
+            arg_key = str(arguments)[:200]
+            _COMMAND_CACHE[(tool_name, arg_key)] = (time.time(), output)
+            # 限制缓存大小
+            if len(_COMMAND_CACHE) > 50:
+                old_keys = sorted(_COMMAND_CACHE.keys(), key=lambda k: _COMMAND_CACHE[k][0])[:20]
+                for k in old_keys:
+                    _COMMAND_CACHE.pop(k, None)
         return f"{output}（耗时: {duration:.1f}s）"
     except TimeoutError:
         duration = time.time() - start_time
