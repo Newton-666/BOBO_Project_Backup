@@ -49,6 +49,9 @@ def _detect_framework(project_dir: Path) -> str | None:
     return None
 
 
+_last_test_results: dict[str, tuple[int, str]] = {}
+
+
 def _run_pytest(project_dir: Path) -> str:
     """运行 pytest，返回格式化的结果。"""
     try:
@@ -89,8 +92,26 @@ def _run_pytest(project_dir: Path) -> str:
         else:
             output = output[:3000]
 
-    return f"[pytest] {summary}\n\n{output[:3000]}"
+    result_text = f"[pytest] {summary}\n\n{output[:3000]}"
 
+    # 测试回归分析：对比上次运行结果
+    key = str(project_dir)
+    if result.returncode != 0 and key in _last_test_results:
+        old_code, old_out = _last_test_results[key]
+        if old_code != 0:
+            old_fail = re.search(r'(\d+) failed', old_out)
+            new_fail = re.search(r'(\d+) failed', output)
+            if old_fail and new_fail:
+                old_n = int(old_fail.group(1))
+                new_n = int(new_fail.group(1))
+                diff = new_n - min(new_n, old_n)
+                if diff <= 0:
+                    result_text += "\n[提示] 这些失败在上次运行时已存在，不是本次修改导致的"
+                elif diff < new_n:
+                    result_text += f"\n[提示] 相比上次，新增 {diff} 个失败，{new_n - diff} 个失败已存在"
+    _last_test_results[key] = (result.returncode, output)
+
+    return result_text
 
 def _run_jest(project_dir: Path) -> str:
     """运行 jest。"""

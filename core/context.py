@@ -72,6 +72,16 @@ class ContextMixin:
 
     def _compress_history(self):
         """将早期对话压缩为摘要，保留最近 KEEP_EXCHANGES 轮完整对话。"""
+        # 工具结果预算：tool 消息独立设 30K 字符上限
+        tool_msgs = [(i, m) for i, m in enumerate(self.history) if m.get("role") == "tool"]
+        total_tool = sum(len(str(m.get("tool_results", []))) for _, m in tool_msgs)
+        if tool_msgs and total_tool > 30000:
+            per_tool = max(500, 30000 // len(tool_msgs))
+            for i, m in tool_msgs:
+                tr = m.get("tool_results", "")
+                if len(str(tr)) > per_tool:
+                    m["tool_results"] = str(tr)[:per_tool] + f"\n...(截断，原{len(str(tr))}字符)"
+
         # 先尝试回收空间：丢弃工具状态和思考过程等低价值消息
         total = sum(len(str(m)) for m in self.history)
         if total > self.MAX_HISTORY_CHARS - 10000:
