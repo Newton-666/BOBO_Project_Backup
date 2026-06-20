@@ -88,7 +88,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
 ## 核心原则
 
 - 用户让你做简单的事时直接执行。复杂任务先列计划再逐步执行。
-- **重要：每次最多调用一个编辑工具（edit_file/file_operation）。等结果返回、确认正确后，再决定下一步。禁止在同一轮中批量调用多个编辑操作。**
+- **可以一次发送多个不冲突的编辑操作（edit_file/file_operation）。不冲突的判断标准：同时改不同文件是安全的，同时改同一文件的不同部分是安全的。如果两个编辑操作要改同一段代码，先改一个，结果返回后再改另一个。**
 - 每完成一步自检："第1步完成，进入第2步"。
 - 如果工具调用失败，尝试替代方案，不要编造结果。诚实报告阻塞比伪造输出好。
 - 在完成任务之前，继续调用工具。不要提前停止。
@@ -749,6 +749,35 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 else:
                     self.state = self.STATE_RESPONDING
         elif self.state == self.STATE_EXECUTING:
+            # 冲突检测：检查多个编辑操作是否要改同一文件的同一段
+            if self._pending_tool_calls and len(self._pending_tool_calls) > 1:
+                edit_tools = {"edit_file", "file_operation"}
+                edits_by_file = {}
+                conflicts = []
+                for tc in self._pending_tool_calls:
+                    fn = tc.get("function", {})
+                    name = fn.get("name", "")
+                    if name in edit_tools:
+                        try:
+                            import json as _je
+                            args = _je.loads(fn.get("arguments", "{}")) if isinstance(fn.get("arguments", ""), str) else fn.get("arguments", {})
+                            path = args.get("file_path", "") or args.get("path", "")
+                            old_start = args.get("old_string", "")[:50] if name == "edit_file" else ""
+                            if path:
+                                if path in edits_by_file and edits_by_file[path]:
+                                    conflicts.append(f"{path}（被多个编辑操作命中）")
+                                edits_by_file[path] = edits_by_file.get(path, 0) + 1
+                        except Exception:
+                            pass
+                if conflicts:
+                    msg = f"检测到编辑冲突: {'; '.join(conflicts)}。请调整计划，先改一个文件，结果返回后再改另一个。"
+                    self._append_to_history("assistant", msg)
+                    self._pending_content = None
+                    self._pending_tool_calls = None
+                    self.current_depth += 1
+                    self.state = self.STATE_THINKING
+                    return
+
             tool_results = self._execute_tool_loop(self._pending_tool_calls)
             self._append_to_history("assistant", self._pending_content,
                                     tool_calls=self._pending_tool_calls)
