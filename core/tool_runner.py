@@ -271,6 +271,16 @@ class ToolRunnerMixin:
                     )
                     if diff.returncode == 0 and diff.stdout.strip():
                         self._pending_diff = diff.stdout.strip()
+                        # 通知桌面端：文件已修改
+                        if hasattr(self, '_notify'):
+                            fpath = ""
+                            if isinstance(tool_args, dict):
+                                fpath = tool_args.get("file_path", "") or tool_args.get("path", "") or ""
+                            self._notify("notes.changed", {
+                                "file": fpath,
+                                "diff": diff.stdout.strip()[:3000],
+                                "tool": tool_name
+                            })
                 except Exception:
                     pass
 

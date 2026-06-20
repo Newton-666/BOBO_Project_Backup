@@ -116,6 +116,13 @@ def run_engine(
                     "text": data.get("text", ""),
                     "session_id": sid,
                 })
+            elif event_type == "notes.changed":
+                emit("notes.changed", sid, {
+                    "file": data.get("file", ""),
+                    "diff": data.get("diff", ""),
+                    "tool": data.get("tool", ""),
+                    "session_id": sid,
+                })
 
         def confirm_callback(tool_name: str, tool_args: dict, reason: str) -> bool:
             event = threading.Event()
