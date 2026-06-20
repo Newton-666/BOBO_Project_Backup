@@ -678,50 +678,54 @@ on('notes.tree', function(payload) {
   }
 });
 
-// Listen for notes.changed — show diff when Bobo edits a file
+// Listen for notes.changed — show rendered note with diff summary when Bobo edits a file
 on('notes.changed', function(payload) {
   if (!payload || !payload.file) return;
   var diff = (payload.diff || '').substring(0, 3000);
   var result = (payload.result || '').substring(0, 2000);
-  // Open notes plugin and show diff
   var p = document.getElementById('right-panel');
   if (!p.classList.contains('open')) {
     openPlugin('notes');
   }
   var content = document.getElementById('right-content');
-  var html = '<div style="margin-bottom:8px;font-size:12px;color:var(--text2);">📝 ' + esc(payload.file) + '</div>';
+  // Count added/removed lines from diff
+  var added = 0, removed = 0;
   if (diff) {
-    // Render git diff with +/- highlighting
-    var lines = diff.split('\n');
-    lines.forEach(function(l) {
-      if (l.startsWith('+') && !l.startsWith('+++')) {
-        html += '<div style="background:rgba(76,175,80,0.08);color:#2e7d32;padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
-      } else if (l.startsWith('-') && !l.startsWith('---')) {
-        html += '<div style="background:rgba(244,67,54,0.08);color:#c62828;padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
-      } else if (l.startsWith('@@')) {
-        html += '<div style="color:var(--text-muted);padding:1px 6px;font-family:monospace;font-size:10px;">' + esc(l) + '</div>';
-      } else {
-        html += '<div style="color:var(--text-muted);padding:1px 6px;font-family:monospace;font-size:11px;white-space:pre-wrap;">' + esc(l) + '</div>';
-      }
+    diff.split('\n').forEach(function(l) {
+      if (l.startsWith('+') && !l.startsWith('+++')) added++;
+      else if (l.startsWith('-') && !l.startsWith('---')) removed++;
     });
-  } else if (result) {
-    html += '<div style="padding:6px;background:rgba(76,175,80,0.06);border-radius:4px;color:var(--text2);font-size:12px;white-space:pre-wrap;">' + esc(result) + '</div>';
-  } else {
-    html += '<div style="color:var(--text-muted);font-size:11px;">文件已更新（无 diff 信息）</div>';
   }
-  content.innerHTML = '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">📄 变更预览</div>' + html;
+  var summary = esc(payload.file);
+  if (diff) summary += ' — +' + added + ' / -' + removed + ' 行';
+  else summary += ' — 已更新';
+  // Load the rendered file content
+  call('file.read', { filepath: payload.file }).then(function(r) {
+    var body = '';
+    if (r && r.content) {
+      var txt = r.content;
+      if (typeof txt === 'string' && txt.length > 10000) txt = txt.substring(0, 10000) + '\n...（截断）';
+      body = md(txt);
+    } else {
+      body = '<p style="color:var(--text-muted);">无法加载文件内容</p>';
+    }
+    content.innerHTML = '<div style="margin-bottom:8px;">' +
+      '<span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span>' +
+      '<span style="margin-left:8px;font-size:12px;color:var(--text2);">' + summary + '</span></div>' +
+      body;
+  });
 });
 
 function showNote(filepath) {
   var content = document.getElementById('right-content');
-  content.innerHTML = '<div style="margin-bottom:10px;"><span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span></div><div class="np"><p>正在加载...</p><p style="font-size:12px;color:var(--text-muted);">' + esc(filepath) + '</p></div>';
+  content.innerHTML = '<div style="margin-bottom:10px;"><span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span><span style="margin-left:8px;font-size:12px;color:var(--text2);">' + esc(filepath) + '</span></div><div class="np"><p style="color:var(--text-muted);">正在加载...</p></div>';
   call('file.read', { filepath: filepath }).then(function(r) {
     if (r && r.content) {
       var txt = r.content;
-      if (typeof txt === 'string' && txt.length > 5000) txt = txt.substring(0, 5000) + '\n...（截断至 5000 字符）';
-      content.innerHTML = '<div style="margin-bottom:10px;"><span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span></div><div class="np"><pre style="white-space:pre-wrap;font-size:12px;color:var(--text2);">' + esc(txt) + '</pre></div>';
+      if (typeof txt === 'string' && txt.length > 10000) txt = txt.substring(0, 10000) + '\n...（截断至 10000 字符）';
+      content.innerHTML = '<div style="margin-bottom:10px;"><span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span><span style="margin-left:8px;font-size:12px;color:var(--text2);">' + esc(filepath) + '</span></div>' + md(txt);
     } else {
-      content.innerHTML = '<div style="margin-bottom:10px;"><span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span></div><div class="np"><p style="color:var(--text-muted);">无法加载文件</p></div>';
+      content.innerHTML = '<div style="margin-bottom:10px;"><span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span></div><p style="color:var(--text-muted);">无法加载文件</p>';
     }
   });
 }
