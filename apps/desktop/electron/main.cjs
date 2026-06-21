@@ -247,7 +247,7 @@ function installBoboBackend() {
   if (python) {
     try {
       require('child_process').execSync(
-        `${python} -m pip install --user --break-system-packages python-dotenv httpx Pillow -q`,
+        `${python} -m pip install --user --break-system-packages python-dotenv httpx Pillow pyyaml -q`,
         { timeout: 60000, stdio: 'pipe' }
       )
       console.log('[bobo-desktop] Python deps installed')

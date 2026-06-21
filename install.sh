@@ -74,9 +74,9 @@ echo "🔓 已解除隔离标记"
 
 # ── Install Python dependencies ──
 echo "📦 正在安装 Python 依赖..."
-pip3 install python-dotenv httpx Pillow -q 2>/dev/null || \
-  pip install python-dotenv httpx Pillow -q 2>/dev/null || \
-  echo "⚠️  Python 依赖安装失败，请手动运行: pip3 install python-dotenv httpx Pillow"
+pip3 install python-dotenv httpx Pillow pyyaml -q 2>/dev/null || \
+  pip install python-dotenv httpx Pillow pyyaml -q 2>/dev/null || \
+  echo "⚠️  Python 依赖安装失败，请手动运行: pip3 install python-dotenv httpx Pillow pyyaml"
 echo "   完成"
 
 # ── First launch: prompt user ──
