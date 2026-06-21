@@ -1048,6 +1048,17 @@ on('tool.start', function(data) {
 on('tool.complete', function(data) {
   var tid = data ? data.tool_id || '' : '';
   if (tid) updateToolResult(tid, data ? data.result_text || '' : '', data ? data.error || '' : '', data ? data.duration || 0 : 0);
+  // 联动：Bobo 读文件 → 自动在项目面板显示
+  var name = data ? data.name : '';
+  if (name === 'read_local_file') {
+    var args = data ? data.arguments || {} : {};
+    var fp = (args.filepath || args.path || '').toString();
+    if (fp) { openPlugin('project'); showProjectFile(fp); }
+  }
+  if (name === 'write_obsidian' || name === 'append_obsidian') {
+    var fn = (data ? data.arguments || {} : {}).filename || '';
+    if (fn) { openPlugin('notes'); }
+  }
 });
 on('status.update', function(data) {
   var t = data ? data.text || '' : ''; if (!t) return;

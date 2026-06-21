@@ -72,6 +72,7 @@ def run_engine(
                 emit("tool.complete", sid, {
                     "tool_id": data.get("name", ""),
                     "name": data.get("name", ""),
+                    "arguments": data.get("args", {}),
                     "duration": data.get("duration", 0),
                     "result_text": tool_output,
                     "error": "" if data.get("success", True) else (
