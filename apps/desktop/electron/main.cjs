@@ -148,6 +148,7 @@ function createWindow() {
     minWidth: 500,
     minHeight: 400,
     title: 'Bobo',
+    icon: path.join(__dirname, '..', 'build', 'icon.icns'),
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -201,6 +202,7 @@ ipcMain.on('backend-get-pending', (event) => {
 // ── App lifecycle ──────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  app.setName('Bobo')
   startBackend()
   createWindow()
 
