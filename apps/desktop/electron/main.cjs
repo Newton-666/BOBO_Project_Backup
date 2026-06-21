@@ -34,9 +34,11 @@ function startBackend() {
   const python = resolvePython()
   const isPackaged = app.isPackaged
   let projectRoot
+
+  // Install backend to ~/.bobo/ if packaged
   if (isPackaged) {
-    // Packaged .dmg: Python backend is bundled in Resources
-    projectRoot = path.join(process.resourcesPath, 'bobo-backend')
+    installBoboBackend()
+    projectRoot = path.join(os.homedir(), '.bobo')
   } else {
     // Dev: 3 levels up from electron/ to project root
     projectRoot = path.resolve(__dirname, '..', '..', '..')
@@ -181,7 +183,60 @@ ipcMain.handle('backend-send-sync', async (_event, msg) => {
   return sendToBackend(msg)
 })
 
-const { dialog } = require('electron')
+// ── Backend install (first launch or update) ──
+function installBoboBackend() {
+  const srcDir = path.join(process.resourcesPath, 'bobo-backend')
+  const destDir = path.join(os.homedir(), '.bobo')
+  const binDir = path.join(destDir, 'bin')
+
+  // If src doesn't exist, we're in dev or unbundled — skip
+  if (!fs.existsSync(srcDir)) return false
+
+  // Ensure dest exists
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true })
+
+  let copied = 0
+  // Copy directories
+  for (const dir of ['core', 'tools', 'bobo_tui_gateway']) {
+    const s = path.join(srcDir, dir)
+    const d = path.join(destDir, dir)
+    if (fs.existsSync(s)) _copyDir(s, d)
+    copied++
+  }
+  // Copy files (skip .env)
+  for (const f of ['config.py', 'pyproject.toml']) {
+    const s = path.join(srcDir, f)
+    const d = path.join(destDir, f)
+    if (fs.existsSync(s)) fs.copyFileSync(s, d)
+    copied++
+  }
+  // Create bobo CLI script
+  if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true })
+  const cliPath = path.join(binDir, 'bobo')
+  if (!fs.existsSync(cliPath)) {
+    fs.writeFileSync(cliPath, `#!/bin/bash\ncd "${destDir}" && python3 -m bobo_tui_gateway.entry "$@"\n`, 'utf8')
+    fs.chmodSync(cliPath, 0o755)
+  }
+  console.log(`[bobo-desktop] Installed backend to ${destDir} (${copied} items)`)
+  return true
+}
+
+function _copyDir(src, dest) {
+  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true })
+  for (const entry of fs.readdirSync(src)) {
+    const s = path.join(src, entry)
+    const d = path.join(dest, entry)
+    const stat = fs.statSync(s)
+    if (stat.isDirectory()) {
+      _copyDir(s, d)
+    } else {
+      // Never overwrite .env
+      if (entry === '.env' && fs.existsSync(d)) continue
+      fs.copyFileSync(s, d)
+    }
+  }
+}
+
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
