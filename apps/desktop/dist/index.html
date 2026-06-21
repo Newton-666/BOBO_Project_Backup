@@ -682,7 +682,6 @@ on('notes.tree', function(payload) {
 on('notes.changed', function(payload) {
   if (!payload || !payload.file) return;
   var diff = (payload.diff || '').substring(0, 3000);
-  var contentData = (payload.content || '');
   var p = document.getElementById('right-panel');
   if (!p.classList.contains('open')) {
     openPlugin('notes');
@@ -699,26 +698,21 @@ on('notes.changed', function(payload) {
   var summary = esc(payload.file);
   if (diff) summary += ' — +' + added + ' / -' + removed + ' 行';
   else summary += ' — 已更新';
-  // Render content: prefer inline content, fallback to file.read
-  function renderBody(body) {
+  // Load file content and render
+  call('file.read', { filepath: payload.file }).then(function(r) {
+    var body = '';
+    if (r && r.content) {
+      var txt = r.content;
+      if (typeof txt === 'string' && txt.length > 10000) txt = txt.substring(0, 10000) + '\n...（截断）';
+      body = md(txt);
+    } else {
+      body = '<p style="color:var(--text-muted);">无法加载文件内容</p>';
+    }
     content.innerHTML = '<div style="margin-bottom:8px;">' +
       '<span onclick="renderNotesPanel(document.getElementById(\'right-content\'), _notesTree)" style="cursor:pointer;color:var(--text-muted);font-size:13px;">← 返回</span>' +
       '<span style="margin-left:8px;font-size:12px;color:var(--text2);">' + summary + '</span></div>' +
       body;
-  }
-  if (contentData) {
-    renderBody(md(contentData));
-  } else {
-    call('file.read', { filepath: payload.file }).then(function(r) {
-      if (r && r.content) {
-        var txt = r.content;
-        if (typeof txt === 'string' && txt.length > 10000) txt = txt.substring(0, 10000) + '\n...（截断）';
-        renderBody(md(txt));
-      } else {
-        renderBody('<p style="color:var(--text-muted);">无法加载文件内容</p>');
-      }
-    });
-  }
+  });
 });
 
 function showNote(filepath) {

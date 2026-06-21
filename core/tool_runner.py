@@ -284,7 +284,6 @@ class ToolRunnerMixin:
                             "file": fpath,
                             "diff": diff_text,
                             "tool": tool_name,
-                            "content": str(result)[:10000] if not diff_text else ""
                         })
                 except Exception:
                     pass
