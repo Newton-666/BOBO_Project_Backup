@@ -121,6 +121,7 @@ def run_engine(
                     "file": data.get("file", ""),
                     "diff": data.get("diff", ""),
                     "tool": data.get("tool", ""),
+                    "content": data.get("content", ""),
                     "session_id": sid,
                 })
 

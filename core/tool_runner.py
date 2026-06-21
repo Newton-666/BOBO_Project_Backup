@@ -279,12 +279,12 @@ class ToolRunnerMixin:
                         if isinstance(tool_args, dict):
                             fpath = tool_args.get("file_path", "") or tool_args.get("path", "") or ""
                         if not fpath and tool_name in ("write_obsidian", "append_obsidian"):
-                            fpath = tool_args.get("filepath", "") or tool_args.get("title", "")
+                            fpath = tool_args.get("filename", "") or tool_args.get("filepath", "") or tool_args.get("title", "")
                         self._notify("notes.changed", {
                             "file": fpath,
                             "diff": diff_text,
                             "tool": tool_name,
-                            "result": str(result)[:2000] if not diff_text else ""
+                            "content": str(result)[:10000] if not diff_text else ""
                         })
                 except Exception:
                     pass
