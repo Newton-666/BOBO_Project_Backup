@@ -5,7 +5,9 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -16,7 +18,8 @@
     "productName": "Bobo",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "build/icon.icns"
     },
     "files": [
       "dist/**/*",
