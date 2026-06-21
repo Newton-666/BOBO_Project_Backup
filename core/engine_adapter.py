@@ -123,6 +123,13 @@ def run_engine(
                     "tool": data.get("tool", ""),
                     "session_id": sid,
                 })
+            elif event_type == "terminal.output":
+                emit("terminal.output", sid, {
+                    "command": data.get("command", ""),
+                    "output": data.get("output", ""),
+                    "duration": data.get("duration", 0),
+                    "session_id": sid,
+                })
 
         def confirm_callback(tool_name: str, tool_args: dict, reason: str) -> bool:
             event = threading.Event()

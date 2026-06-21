@@ -262,6 +262,17 @@ class ToolRunnerMixin:
                         result = f"[{error_type}] {filepath}:{lineno}\n{result[:self.MAX_TOOL_RESULT_LENGTH]}"
                         break
 
+            # 终端执行记录 — 发射到桌面端
+            if tool_name == "execute_terminal" and hasattr(self, '_notify'):
+                cmd = ""
+                if isinstance(tool_args, dict):
+                    cmd = tool_args.get("command", "") or tool_args.get("cmd", "") or str(tool_args)[:80]
+                self._notify("terminal.output", {
+                    "command": str(cmd)[:200],
+                    "output": str(result)[:2000],
+                    "duration": 0,
+                })
+
             # Git diff 捕获
             if tool_name in ("file_writer", "code_execution", "edit_file", "write_obsidian", "append_obsidian") and not result.startswith("错误"):
                 try:

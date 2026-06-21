@@ -609,6 +609,7 @@ function openPlugin(id) {
   // Plugin content
   if (id === 'notes') renderNotesPanel(content, _notesTree);
   else if (id === 'project') renderProjectPanel(content);
+  else if (id === 'terminal') renderTerminalPanel(content);
   else content.innerHTML = '<p style="color:var(--text-muted);margin-top:20px;text-align:center;">' + p.desc + '<br><br>即将上线</p>';
 }
 
@@ -739,6 +740,42 @@ function clearProject() {
   _projectTree = null;
   var content = document.getElementById('right-content');
   renderProjectPanel(content);
+}
+
+// ── Terminal Plugin ──
+var _terminalLogs = [];
+var _terminalEl = null;
+
+function renderTerminalPanel(el) {
+  _terminalEl = el;
+  if (_terminalLogs.length === 0) {
+    el.innerHTML = '<div style="text-align:center;margin-top:40px;">' +
+      '<p style="font-size:13px;color:var(--text2);margin-bottom:8px;">⚡ 终端</p>' +
+      '<p style="font-size:11px;color:var(--text-muted);">Bobo 执行的命令会显示在这里</p></div>';
+    return;
+  }
+  var html = '<div style="margin-bottom:8px;display:flex;align-items:center;gap:4px;">' +
+    '<span style="font-size:12px;color:var(--text2);flex:1;">⚡ 终端</span>' +
+    '<span onclick="clearTerminal()" style="cursor:pointer;font-size:11px;color:var(--text-muted);">清除</span></div>';
+  _terminalLogs.forEach(function(log) {
+    html += '<div style="margin-bottom:8px;">' +
+      '<div style="font-family:monospace;font-size:11px;color:#5b9bd5;padding:2px 0;">$ ' + esc(log.command) + '</div>' +
+      '<div style="font-family:monospace;font-size:11px;color:var(--text2);white-space:pre-wrap;padding:4px 8px;background:var(--bg2);border-radius:4px;">' + esc(log.output) + '</div></div>';
+  });
+  el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
+
+on('terminal.output', function(payload) {
+  if (!payload || !payload.command) return;
+  _terminalLogs.push({ command: payload.command, output: payload.output || '' });
+  if (_terminalLogs.length > 100) _terminalLogs.shift();
+  if (_terminalEl) renderTerminalPanel(_terminalEl);
+});
+
+function clearTerminal() {
+  _terminalLogs = [];
+  if (_terminalEl) renderTerminalPanel(_terminalEl);
 }
 
 function renderProjectTree(nodes) {
