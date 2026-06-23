@@ -456,6 +456,31 @@ class Engine(ContextMixin, ToolRunnerMixin):
 
         messages = [{"role": "system", "content": self.system_prompt}] + self.history
 
+        # 过滤长工具结果：把文件全文替换为文件标记，节省上下文空间
+        # self.history 保持不变（用户看到的聊天记录不受影响）
+        for i in range(len(messages)):
+            msg = messages[i]
+            if msg.get("role") != "tool":
+                continue
+            content = str(msg.get("content", "") or "")
+            if len(content) < 2000:
+                continue
+            # Find matching file from _read_files
+            fpath = ""
+            if hasattr(self, '_read_files') and self._read_files:
+                for fp in self._read_files:
+                    if fp in content:
+                        fpath = fp
+                        break
+            if fpath:
+                # Extract first meaningful line
+                first_line = content.split("\n")[0][:80]
+                summary = self._read_files.get(fpath, "")[:150]
+                messages[i] = {
+                    "role": "tool",
+                    "content": f"[文件已加载: {fpath}]\n摘要: {summary}\n首行: {first_line}"
+                }
+
         if self._pending_diff:
             diff_preview = self._pending_diff[:4000]
             messages.insert(1, {
