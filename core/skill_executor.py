@@ -1,8 +1,26 @@
 """Skill 保存 — 从教学模式录制并保存技能"""
 
 import yaml
+import re
 from pathlib import Path
 from typing import List, Dict
+
+
+def _auto_triggers(name: str, desc: str = "") -> list:
+    """Auto-generate trigger keywords from skill name and description."""
+    keywords = set()
+    text = f"{name} {desc}".lower()
+    # Extract Chinese words (2-4 chars)
+    for m in re.finditer(r"[\u4e00-\u9fff]{2,6}", text):
+        word = m.group()
+        if word not in ("录制", "步骤", "描述", "教学", "技能", "工作", "参考", "使用", "分析"):
+            keywords.add(word)
+    # Extract English keywords (split by space/slash/hyphen)
+    for part in re.split(r"[\s/\-_,]", name):
+        part = part.strip().lower()
+        if len(part) > 2 and part not in ("the", "and", "for", "from", "with", "skill"):
+            keywords.add(part)
+    return sorted(keywords)[:6]
 
 
 class SkillExecutor:
@@ -32,6 +50,7 @@ class SkillExecutor:
         skill = {
             "name": skill_name,
             "description": description or f"从教学录制，{len(steps)} 个步骤",
+            "triggers": _auto_triggers(skill_name, description),
             "steps": steps,
         }
 
