@@ -589,6 +589,9 @@ class Engine(ContextMixin, ToolRunnerMixin):
             if retryable:
                 error_msg = f"{error_msg}（已自动重试，仍失败）"
             self._notify("error", {"content": error_msg, "error_type": error_type})
+            # Non-retryable errors (400, 401, etc) — stop the session
+            if not retryable:
+                self.state = self.STATE_ERROR
             return error_msg, []
         self._last_usage = response.get("usage", {})
         content, tool_calls = self._extract_response(response)
