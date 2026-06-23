@@ -458,11 +458,28 @@ class Engine(ContextMixin, ToolRunnerMixin):
             from tools import _skill_mgr
             skill_refs = _skill_mgr.get_skill_tools()
             if skill_refs:
-                lines = ["[可参考的技能工作流]:"]
+                user_text = (self.current_user_input or "").lower()
+                matched = []
+                others = []
                 for s in skill_refs:
-                    name = s["function"]["name"]
+                    name = s["function"]["name"].replace("run_skill:", "")
                     desc = s["function"]["description"]
-                    lines.append(f"  {name.replace('skill_', '')}: {desc[:100]}")
+                    triggers = s.get("triggers", [])
+                    if triggers and any(t.lower() in user_text for t in triggers):
+                        matched.append(f"  ▶ {name}: {desc[:100]}")
+                    else:
+                        others.append(f"  {name}: {desc[:100]}")
+                lines = []
+                if matched:
+                    lines.append("[推荐技能 — 当前场景可用]:")
+                    lines.extend(matched)
+                    if others:
+                        lines.append("")
+                        lines.append("[其他技能]:")
+                        lines.extend(others)
+                else:
+                    lines.append("[可参考的技能工作流]:")
+                    lines.extend(others)
                 messages.insert(1, {
                     "role": "system",
                     "content": "\n".join(lines)

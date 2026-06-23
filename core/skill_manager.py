@@ -50,7 +50,8 @@ class SkillManager:
         tools = []
         for name, skill in self._skills.items():
             desc = skill.get("description", f"Skill: {name}")
-            tools.append({
+            triggers = skill.get("triggers", [])
+            tool = {
                 "type": "function",
                 "function": {
                     "name": f"run_skill:{name}",
@@ -61,7 +62,10 @@ class SkillManager:
                         "required": [],
                     },
                 },
-            })
+            }
+            if triggers:
+                tool["triggers"] = triggers
+            tools.append(tool)
         return tools
 
     def execute_skill(self, skill: dict, context: dict = None) -> str:
