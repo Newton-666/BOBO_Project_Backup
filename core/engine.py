@@ -304,7 +304,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
                     return False
         # 步骤预算渐进提醒
         if self.current_depth == 35:
-            self._append_to_history("user", "提示: 你已执行 35 步。如果已有足够信息，请直接生成最终回复，不需要再调用工具。")
+            self._append_to_history("user", "提示: 你已执行 35 步，剩余步骤预算约一半。注意合理分配，不必着急收尾。")
             self.current_depth += 1
             return False
         if self.current_depth == 45:
@@ -466,7 +466,22 @@ class Engine(ContextMixin, ToolRunnerMixin):
                     desc = s["function"]["description"]
                     triggers = s.get("triggers", [])
                     if triggers and any(t.lower() in user_text for t in triggers):
-                        matched.append(f"  ▶ {name}: {desc[:100]}")
+                        matched.append(f"  ▶ {name}: {desc}")
+                        # 注入匹配 skill 的完整步骤 → LLM 直接可见，不需调工具
+                        try:
+                            skill_data = _skill_mgr.get_skill(name)
+                            if skill_data and skill_data.get("steps"):
+                                step_lines = []
+                                for st in skill_data["steps"]:
+                                    sn = st.get("name", "")
+                                    sa = st.get("action", "")
+                                    si = st.get("step", "")
+                                    if sn or sa:
+                                        step_lines.append(f"    {si}. {sn}: {sa[:200]}")
+                                if step_lines:
+                                    matched.append("\n".join(step_lines))
+                        except Exception:
+                            pass
                     else:
                         others.append(f"  {name}: {desc[:100]}")
                 lines = []
@@ -588,7 +603,9 @@ class Engine(ContextMixin, ToolRunnerMixin):
             retryable = response.get("retryable", False)
             if retryable:
                 error_msg = f"{error_msg}（已自动重试，仍失败）"
-            self._notify("error", {"content": error_msg, "error_type": error_type})
+            detail = response.get("detail", "")
+            full_msg = f"{error_msg} — {detail[:500]}" if detail else error_msg
+            self._notify("error", {"content": full_msg, "error_type": error_type})
             # Non-retryable errors (400, 401, etc) — stop the session
             if not retryable:
                 self.state = self.STATE_ERROR
@@ -605,7 +622,11 @@ class Engine(ContextMixin, ToolRunnerMixin):
             self._notify("user_input", {"content": content})
             self._record_message("user", content=content)
         elif role == "assistant":
-            msg = {"role": "assistant", "content": content or ""}
+            msg = {"role": "assistant"}
+            if content:
+                msg["content"] = content
+            else:
+                msg["content"] = None
             if tool_calls:
                 msg["tool_calls"] = tool_calls
             self.history.append(msg)

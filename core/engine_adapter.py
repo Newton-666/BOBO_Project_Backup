@@ -178,11 +178,12 @@ def run_engine(
 
         save_session_to_disk(sid)
 
-        emit("message.complete", sid, {
-            "session_id": sid,
-            "final_text": result_text[0],
-            "usage": last_usage[0],
-        })
+        if engine.state != engine.STATE_ERROR:
+            emit("message.complete", sid, {
+                "session_id": sid,
+                "final_text": result_text[0],
+                "usage": last_usage[0],
+            })
 
     except Exception as e:
         import logging
