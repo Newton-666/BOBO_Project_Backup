@@ -64,6 +64,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._checkpoints: list[dict] = []   # 对话回退快照
         self._interrupt_event: threading.Event | None = None
         self._recent_tool_calls: list[tuple[str, str]] = []  # (tool_name, args_key) for loop detection
+        self._used_categories: set[str] = set()  # 边执行边扩张的工具分类
 
     def _notify(self, event_type: str, data: dict):
         if self.callback:
@@ -586,7 +587,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
                 "text": f"API {message}，{int(delay)} 秒后重试...",
             })
 
-        filtered_tools = self._get_filtered_tools()
+        filtered_tools = self._get_filtered_tools(extra_categories=self._used_categories)
         if filtered_tools is not None:
             names = [t.get("function", {}).get("name", "") for t in filtered_tools]
             self._notify("thinking", {"phase": "tool_filter", "message": f"加载 {len(filtered_tools)} 个工具 ({', '.join(names)})"})
@@ -888,6 +889,12 @@ class Engine(ContextMixin, ToolRunnerMixin):
                     args = str(tc.get("function", {}).get("arguments", ""))[:60]
                     self._recent_tool_calls.append((name, args))
                 self._recent_tool_calls = self._recent_tool_calls[-12:]
+                # 边执行边扩张：根据实际调用的工具名，把对应分类加入已启用集合
+                for tc in self._pending_tool_calls:
+                    n = tc.get("function", {}).get("name", "")
+                    for cat, tools in self.TOOL_CATEGORIES.items():
+                        if n in tools:
+                            self._used_categories.add(cat)
             # 记录改动日志
             if name in ("edit_file", "file_operation"):
                 try:
@@ -983,6 +990,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self.current_tool_round = 0
         self._tool_failures = {}
         self._recent_tool_calls = []
+        self._used_categories = set()
         self._file_checkpoints.clear()
         self._pending_content = None
         self._pending_tool_calls = None

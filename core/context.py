@@ -190,16 +190,33 @@ class ContextMixin:
                     return category
         return None
 
-    def _get_filtered_tools(self) -> Optional[list]:
-        """根据查询类别返回过滤后的工具列表，返回 None 表示使用全部工具。"""
+    def _get_filtered_tools(self, extra_categories: set[str] | None = None) -> Optional[list]:
+        """根据查询类别 + 已扩张类别返回过滤后的工具列表，返回 None 表示使用全部工具。"""
         from tools import TOOLS_SCHEMA
         category = self._classify_query()
-        if category is None or category in self._NO_FILTER_CATEGORIES:
-            return None  # 使用全部工具
+
+        # 如果没有分类也没有已扩张的类别，返回全部
+        if (category is None or category in self._NO_FILTER_CATEGORIES) and not extra_categories:
+            return None
 
         allowed_names = set()
-        for cat in [category] + self._FALLBACK_CATEGORIES:
-            allowed_names.update(self.TOOL_CATEGORIES.get(cat, []))
+        if category and category not in self._NO_FILTER_CATEGORIES:
+            for cat in [category] + self._FALLBACK_CATEGORIES:
+                allowed_names.update(self.TOOL_CATEGORIES.get(cat, []))
+        elif category in self._NO_FILTER_CATEGORIES and extra_categories:
+            allowed_names.update(self.TOOL_CATEGORIES.get(category, []))
+            for cat in self._FALLBACK_CATEGORIES:
+                allowed_names.update(self.TOOL_CATEGORIES.get(cat, []))
+
+        # 合并已扩张的类别
+        if extra_categories:
+            for cat in extra_categories:
+                allowed_names.update(self.TOOL_CATEGORIES.get(cat, []))
+
+        # 如果没有来自分类的兜底（category 为空），加入 general
+        if not allowed_names or category is None:
+            for cat in self._FALLBACK_CATEGORIES:
+                allowed_names.update(self.TOOL_CATEGORIES.get(cat, []))
 
         if not allowed_names:
             return None
