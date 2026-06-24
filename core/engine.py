@@ -65,6 +65,8 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._interrupt_event: threading.Event | None = None
         self._recent_tool_calls: list[tuple[str, str]] = []  # (tool_name, args_key) for loop detection
         self._used_categories: set[str] = set()  # 边执行边扩张的工具分类
+        self._phase_pending_cleanup: bool = False
+        self._phase_summary: str = ""
 
     def _notify(self, event_type: str, data: dict):
         if self.callback:
@@ -343,6 +345,65 @@ class Engine(ContextMixin, ToolRunnerMixin):
             return True
         return False
 
+    # ── 阶段管理与上下文交接 ──────────────────────────────────────────
+
+    _PHASE_COMPLETE_PATTERNS = [
+        r"阶段\s*[\w\d]+\s*完成",
+        r"进入阶段",
+        r"开始阶段",
+        r"\[PLAN\].*?\[/PLAN\]",
+    ]
+
+    def _is_phase_complete(self, text: str) -> bool:
+        """检测 LLM 回复是否包含阶段完成信号"""
+        import re
+        for pattern in self._PHASE_COMPLETE_PATTERNS:
+            if re.search(pattern, text, re.DOTALL):
+                return True
+        return False
+
+    def _extract_phase_summary(self, text: str) -> str:
+        """从 LLM 回复中提取阶段摘要（取最后一段自然段落）"""
+        import re
+        # 尝试取 [PLAN] 之间的内容作为下一阶段计划
+        plan_m = re.search(r"\[PLAN\](.*?)\[/PLAN\]", text, re.DOTALL)
+        next_plan = f"\n### 下一阶段计划\n{plan_m.group(1).strip()}" if plan_m else ""
+
+        # 去掉 [PLAN] 标记后取原文最后 800 字作为摘要
+        clean = re.sub(r"\[/?PLAN\].*?\[?/PLAN\]?", "", text, flags=re.DOTALL).strip()
+        summary = clean[-800:] if len(clean) > 800 else clean
+        return f"[阶段完成摘要]\n{summary}{next_plan}"
+
+    def _handle_phase_transition(self):
+        """在阶段边界清理上下文：删工具结果，注入摘要"""
+        # 1. 提取最后一轮 assistant 回复中的摘要
+        summary = ""
+        for m in reversed(self.history):
+            if m.get("role") == "assistant" and m.get("content"):
+                summary = self._extract_phase_summary(m["content"])
+                break
+
+        if not summary:
+            return
+
+        # 2. 删掉所有 tool 消息和 assistant 消息中的 tool_calls
+        new_history = []
+        for m in self.history:
+            if m.get("role") == "tool":
+                continue  # 删掉工具结果
+            if m.get("role") == "assistant":
+                m = {k: v for k, v in m.items() if k != "tool_calls"}  # 保留文本，删调用记录
+            new_history.append(m)
+        self.history = new_history
+
+        # 3. 清空缓存
+        self._read_files = {}
+        self._recent_tool_calls = []
+        self._change_log = []
+
+        # 4. 注入阶段摘要（放在 history 开头，紧接系统 prompt）
+        self.history.insert(0, {"role": "system", "content": summary})
+
     # ── 对话回退 ──────────────────────────────────────────────────────
 
     MAX_CHECKPOINTS = 20
@@ -427,6 +488,11 @@ class Engine(ContextMixin, ToolRunnerMixin):
         return f"已回退到: {label}{file_info}\n\n要继续对话吗？"
 
     def _call_llm(self) -> Tuple[str, list]:
+
+        # 阶段交接清理：在当前 LLM 调用前清理上一阶段的上下文
+        if self._phase_pending_cleanup:
+            self._handle_phase_transition()
+            self._phase_pending_cleanup = False
 
         # 硬限制：超过上限的消息数，丢弃最早的消息
         if len(self.history) > self.MAX_HISTORY_MESSAGES:
@@ -898,6 +964,9 @@ class Engine(ContextMixin, ToolRunnerMixin):
             self._append_to_history("assistant", self._pending_content,
                                     tool_calls=self._pending_tool_calls)
             self._append_to_history("tool", tool_results=tool_results)
+            # 检测阶段完成信号
+            if self._pending_content and self._is_phase_complete(self._pending_content):
+                self._phase_pending_cleanup = True
             # 记录工具调用用于循环检测
             if self._pending_tool_calls:
                 for tc in self._pending_tool_calls:
