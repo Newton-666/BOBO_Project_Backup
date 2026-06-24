@@ -53,8 +53,8 @@ class TestEngineBasicFlow:
         engine = Engine(caller, execute_tool, test_mode=True)
         engine.run("first question")
         engine.run("second question")
-        # Should have 4 messages: user1, assistant1, user2, assistant2
-        assert len(engine.history) == 4
+        # Should have 5 messages: plan_reminder, user1, assistant1, user2, assistant2
+        assert len(engine.history) == 5
 
     def test_reset_clears_history(self):
         caller = MockLLMCaller([text_response("ok")])

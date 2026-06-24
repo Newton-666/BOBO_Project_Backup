@@ -67,6 +67,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._used_categories: set[str] = set()  # 边执行边扩张的工具分类
         self._phase_pending_cleanup: bool = False
         self._phase_summary: str = ""
+        self._plan_reminded: bool = False
 
     def _notify(self, event_type: str, data: dict):
         if self.callback:
@@ -493,6 +494,16 @@ class Engine(ContextMixin, ToolRunnerMixin):
         if self._phase_pending_cleanup:
             self._handle_phase_transition()
             self._phase_pending_cleanup = False
+
+        # 首次工具调用后提醒 LLM 规划阶段（避免自指问题）
+        if not self._plan_reminded and self._step_count >= 1:
+            has_plan = any("[PLAN]" in str(m.get("content", "")) for m in self.history)
+            if not has_plan:
+                self.history.insert(0, {
+                    "role": "system",
+                    "content": "注意：如果这个任务还需要多个工具调用才能完成，请先输出带 [PLAN] 的阶段计划。每个阶段完成后说'阶段X完成'。如果只是简单任务，直接继续即可。"
+                })
+                self._plan_reminded = True
 
         # 硬限制：超过上限的消息数，丢弃最早的消息
         if len(self.history) > self.MAX_HISTORY_MESSAGES:
@@ -1076,6 +1087,7 @@ class Engine(ContextMixin, ToolRunnerMixin):
         self._tool_failures = {}
         self._recent_tool_calls = []
         self._used_categories = set()
+        self._plan_reminded = False
         self._file_checkpoints.clear()
         self._pending_content = None
         self._pending_tool_calls = None
